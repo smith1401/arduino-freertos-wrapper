@@ -28,7 +28,9 @@ namespace frt
 
         void lock()
         {
+            TaskHandle_t t = xSemaphoreGetMutexHolder(handle);
             xSemaphoreTake(handle, portMAX_DELAY);
+            t = xSemaphoreGetMutexHolder(handle);
         }
 
         void lock(unsigned int msecs)
@@ -40,7 +42,9 @@ namespace frt
 
         void unlock()
         {
+            TaskHandle_t t = xSemaphoreGetMutexHolder(handle);
             xSemaphoreGive(handle);
+            t = xSemaphoreGetMutexHolder(handle);
         }
 
     private:
@@ -153,9 +157,9 @@ namespace frt
          *  @post The Mutex will be locked.
          *  @note There is an infinite timeout for acquiring the Lock.
          */
-        explicit LockGuard(Mutex &m) : mutex(m)
+        explicit LockGuard(Mutex &m) : mutex(&m)
         {
-            mutex.lock();
+            mutex->lock();
         }
 
         explicit LockGuard(const LockGuard &other) = delete;
@@ -168,11 +172,11 @@ namespace frt
          */
         ~LockGuard()
         {
-            mutex.unlock();
+            mutex->unlock();
         }
 
     private:
-        Mutex &mutex;
+        Mutex *mutex;
     };
 
 }

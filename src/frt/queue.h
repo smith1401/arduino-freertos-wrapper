@@ -1,19 +1,22 @@
 #ifndef __FRT_QUEUE_H__
 #define __FRT_QUEUE_H__
 
+#include "frt.h"
+
 namespace frt
 {
-    template <typename T, unsigned int ITEMS>
+    template <typename T>
     class Queue final
     {
     public:
-        Queue() : handle(
+        Queue(uint32_t queue_size = 10) : handle(
 #if configSUPPORT_STATIC_ALLOCATION > 0
-                      xQueueCreateStatic(ITEMS, sizeof(T), buffer, &state)
+                      xQueueCreateStatic(queue_size, sizeof(T), buffer, &state)
 #else
-                      xQueueCreate(ITEMS, sizeof(T))
+                      xQueueCreate(queue_size, sizeof(T))
 #endif
-                  )
+                  ),
+                  _queue_size(queue_size)
         {
         }
 
@@ -27,7 +30,12 @@ namespace frt
 
         unsigned int getFillLevel() const
         {
-            return ITEMS - uxQueueSpacesAvailable(handle);
+            return _queue_size - uxQueueSpacesAvailable(handle);
+        }
+
+        void override(const T &item)
+        {
+            xQueueOverwrite(handle, &item);
         }
 
         void push(const T &item)
@@ -111,7 +119,7 @@ namespace frt
             higher_priority_task_woken_from_pop = 0;
         }
 
-        bool popFromInterrupt(const T &item)
+        bool popFromInterrupt(T &item)
         {
             return xQueueReceiveFromISR(handle, &item, &higher_priority_task_woken_from_pop);
         }
@@ -132,6 +140,7 @@ namespace frt
         QueueHandle_t handle;
         BaseType_t higher_priority_task_woken_from_push;
         BaseType_t higher_priority_task_woken_from_pop;
+        uint32_t _queue_size;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         uint8_t buffer[ITEMS * sizeof(T)];
         StaticQueue_t state;

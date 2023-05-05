@@ -32,7 +32,7 @@ namespace frt
                                   this,
                                   TimerCallbackFunctionAdapter);
 
-            assert(handle != null);
+            assert(handle != nullptr);
         }
 
         /**
@@ -55,7 +55,7 @@ namespace frt
                                   this,
                                   TimerCallbackFunctionAdapter);
 
-            assert(handle != null);
+            assert(handle != nullptr);
         }
 
         /**
@@ -113,6 +113,10 @@ namespace frt
         bool Stop(TickType_t CmdTimeout = portMAX_DELAY)
         {
             return xTimerStop(handle, CmdTimeout) == pdFALSE ? false : true;
+            // assert(xTimerStop(handle, CmdTimeout) == pdTRUE);
+            // while (xTimerIsTimerActive(handle) == pdTRUE)
+            //     vTaskDelay(1);
+            // return true;
         }
 
         /**

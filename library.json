@@ -1,0 +1,15 @@
+{
+    "name": "Arduino FreeRTOS Wrapper",
+    "version": "1.0.0",
+    "keywords": "rtos, timing, thread, task, mutex, semaphore, arduino, pub, sub",
+    "description": "A wrapper library for c++ on arduino",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/smith1401/arduino-freertos-wrapper"
+    },
+    "frameworks": "arduino",
+    "platforms": "ststm32",
+    "build": {
+        "libArchive": false
+    }
+}

@@ -1,5 +1,5 @@
-#ifndef __FRT_THREAD_H__
-#define __FRT_THREAD_H__
+#ifndef __FRT_TASK_H__
+#define __FRT_TASK_H__
 
 #include "frt.h"
 
@@ -13,6 +13,9 @@ namespace frt
                  do_stop(false),
                  handle(nullptr)
         {
+#ifdef ESP32
+            mtx = portMUX_INITIALIZER_UNLOCKED;
+#endif
         }
 
         ~Task()
@@ -25,12 +28,14 @@ namespace frt
 
         bool start(unsigned char priority = 0, const char *name = "")
         {
+            this->name = name;
+            
             if (priority >= configMAX_PRIORITIES)
             {
                 priority = configMAX_PRIORITIES - 1;
             }
 
-            assert(xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED);
+            // assert(xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED);
 
 #if configSUPPORT_STATIC_ALLOCATION > 0
             handle = xTaskCreateStatic(
@@ -65,9 +70,17 @@ namespace frt
 
         bool isRunning() const
         {
+            bool res = false;
+
+#ifdef ESP32
+            taskENTER_CRITICAL(&mtx);
+            res = running;
+            taskEXIT_CRITICAL(&mtx);
+#else
             taskENTER_CRITICAL();
-            const bool res = running;
+            res = running;
             taskEXIT_CRITICAL();
+#endif
 
             return res;
         }
@@ -105,6 +118,8 @@ namespace frt
         }
 
     protected:
+        virtual bool run() = 0;
+        
         void yield()
         {
             taskYIELD();
@@ -155,12 +170,22 @@ namespace frt
 
         void beginCriticalSection() __attribute__((always_inline))
         {
+#ifdef ESP32
+            portMUX_TYPE mtx = portMUX_INITIALIZER_UNLOCKED;
+            taskENTER_CRITICAL(&mtx);
+#else
             taskENTER_CRITICAL();
+#endif
         }
 
         void endCriticalSection() __attribute__((always_inline))
         {
+#ifdef ESP32
+            portMUX_TYPE mtx = portMUX_INITIALIZER_UNLOCKED;
+            taskEXIT_CRITICAL(&mtx);
+#else
             taskEXIT_CRITICAL();
+#endif
         }
 
     private:
@@ -171,11 +196,19 @@ namespace frt
                 return false;
             }
 
+#ifdef ESP32
+            taskENTER_CRITICAL(&mtx);
+#else
             taskENTER_CRITICAL();
+#endif
             do_stop = true;
             while (running)
             {
+#ifdef ESP32
+                taskEXIT_CRITICAL(&mtx);
+#else
                 taskEXIT_CRITICAL();
+#endif
                 if (!from_idle_task)
                 {
                     vTaskDelay(1);
@@ -184,9 +217,17 @@ namespace frt
                 {
                     taskYIELD();
                 }
+#ifdef ESP32
+                taskENTER_CRITICAL(&mtx);
+#else
                 taskENTER_CRITICAL();
+#endif
             }
+#ifdef ESP32
+            taskEXIT_CRITICAL(&mtx);
+#else
             taskEXIT_CRITICAL();
+#endif
 
             return true;
         }
@@ -197,22 +238,45 @@ namespace frt
 
             bool do_stop;
 
+#ifdef ESP32
+            taskENTER_CRITICAL(&self->mtx);
+#else
             taskENTER_CRITICAL();
+#endif
             self->running = true;
             do_stop = self->do_stop;
+#ifdef ESP32
+            taskEXIT_CRITICAL(&self->mtx);
+#else
             taskEXIT_CRITICAL();
+#endif
 
             while (!do_stop && static_cast<T *>(self)->run())
             {
+#ifdef ESP32
+                taskENTER_CRITICAL(&self->mtx);
+#else
                 taskENTER_CRITICAL();
+#endif
                 do_stop = self->do_stop;
+#ifdef ESP32
+                taskEXIT_CRITICAL(&self->mtx);
+#else
                 taskEXIT_CRITICAL();
+#endif
             }
-
+#ifdef ESP32
+            taskENTER_CRITICAL(&self->mtx);
+#else
             taskENTER_CRITICAL();
+#endif
             self->do_stop = false;
             self->running = false;
+#ifdef ESP32
+            taskEXIT_CRITICAL(&self->mtx);
+#else
             taskEXIT_CRITICAL();
+#endif
 
             const TaskHandle_t handle_copy = self->handle;
             self->handle = nullptr;
@@ -223,10 +287,14 @@ namespace frt
         volatile bool running;
         volatile bool do_stop;
         TaskHandle_t handle;
+        const char* name;
         BaseType_t higher_priority_task_woken;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         StackType_t stack[STACK_SIZE / sizeof(StackType_t)];
         StaticTask_t state;
+#endif
+#ifdef ESP32
+        portMUX_TYPE mtx;
 #endif
     };
 }
