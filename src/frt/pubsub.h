@@ -7,6 +7,7 @@
 #include "msgs.h"
 #include "queue.h"
 #include "manager.h"
+#include "event_group.h"
 
 namespace frt
 {
@@ -77,9 +78,14 @@ namespace frt
         uint32_t _queue_size;
         const char *_topic;
         Queue<T> _queue;
+        EventGroup *_evt_grp;
+        EventBits_t _evt_bit;
 
     public:
-        Subscriber(const char *topic, uint32_t queue_size = 10) : _queue(queue_size), _queue_size(queue_size), _topic(topic)
+        Subscriber(const char *topic, uint32_t queue_size = 10) : _queue(queue_size),
+                                                                  _queue_size(queue_size),
+                                                                  _topic(topic),
+                                                                  _evt_grp(nullptr)
         {
             // auto man = Manager::getInstance();
             // auto pub = man->aquirePublisher<T>(_topic);
@@ -93,21 +99,36 @@ namespace frt
             // pub->removeSubscriber(this);
         }
 
+        void addEvent(EventGroup *evt_grp, const EventBits_t evt_bit)
+        {
+            _evt_grp = evt_grp;
+            _evt_bit = evt_bit;
+        }
+
         void send(const T &msg)
         {
+            // If the size is just one, then override
             if (_queue_size == 1)
             {
                 _queue.override(msg);
             }
+            // If the queue is full, pop the oldest elements and push the new one
             else if (_queue.getFillLevel() == _queue_size)
             {
                 T temp;
                 _queue.pop(temp);
                 _queue.push(msg);
             }
+            // Else just push the element
             else
             {
                 _queue.push(msg);
+            }
+
+            // If there is a synchronization queue available, set the corresponding bit
+            if (_evt_grp != nullptr)
+            {
+                _evt_grp->setBits(_evt_bit);
             }
         }
 

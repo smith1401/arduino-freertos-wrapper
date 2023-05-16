@@ -12,7 +12,7 @@ namespace frt
             uint32_t timestamp;
         };
 
-        struct TemperatureMessage : public Message
+        struct Temperature : public Message
         {
             float temperature;
         };
