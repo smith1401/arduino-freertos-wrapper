@@ -7,6 +7,8 @@
 
 #include <frt/frt.h>
 
+namespace frt
+{
 #define RECORD_INPUT_EVENTS "input_events"
 #define INPUT_SEQUENCE_SOURCE_HARDWARE (0u)
 #define INPUT_SEQUENCE_SOURCE_SOFTWARE (1u)
@@ -19,124 +21,141 @@
 
 #define GPIO_Read(input_pin) (digitalRead(input_pin.pin.gpio) ^ (input_pin.pin.inverted))
 
-class InputTimer;
+    class InputTimer;
 
-/* Input Keys */
-typedef enum
-{
-    InputKeyUp,
-    InputKeyDown,
-    InputKeyRight,
-    InputKeyLeft,
-    InputKeyOk,
-    InputKeyBack,
-    InputKeyMAX, /**< Special value */
-} InputKey;
-
-typedef struct
-{
-    const uint8_t gpio;
-    const InputKey key;
-    const bool inverted;
-    const char *name;
-} InputPin;
-
-/** Input Types
- * Some of them are physical events and some logical
- */
-typedef enum
-{
-    InputTypePress,   /**< Press event, emitted after debounce */
-    InputTypeRelease, /**< Release event, emitted after debounce */
-    InputTypeShort,   /**< Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval */
-    InputTypeLong,    /**< Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease  */
-    InputTypeRepeat,  /**< Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event */
-    InputTypeMAX,     /**< Special value for exceptional */
-} InputType;
-
-/** Input Event, dispatches with FuriPubSub */
-typedef struct
-{
-    union
+    /* Input Keys */
+    typedef enum
     {
-        uint32_t sequence;
-        struct
+        InputKeyUp,
+        InputKeyDown,
+        InputKeyRight,
+        InputKeyLeft,
+        InputKeyOk,
+        InputKeyBack,
+        InputKeyMAX, /**< Special value */
+    } InputKey;
+
+    typedef struct
+    {
+        const uint8_t gpio;
+        const InputKey key;
+        const bool inverted;
+        const char *name;
+    } InputPin;
+
+    /** Input Types
+     * Some of them are physical events and some logical
+     */
+    typedef enum
+    {
+        InputTypePress = (1 << 0),   /**< Press event, emitted after debounce */
+        InputTypeRelease = (1 << 1), /**< Release event, emitted after debounce */
+        InputTypeShort = (1 << 2),   /**< Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval */
+        InputTypeLong = (1 << 3),    /**< Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease  */
+        InputTypeRepeat = (1 << 4),  /**< Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event */
+        InputTypeMAX = 0xFFFFFFFF,   /**< Special value for exceptional */
+    } InputType;
+
+    /** Input Event, dispatches with FuriPubSub */
+    typedef struct
+    {
+        union
         {
-            uint8_t sequence_source : 2;
-            uint32_t sequence_counter : 30;
+            uint32_t sequence;
+            struct
+            {
+                uint8_t sequence_source : 2;
+                uint32_t sequence_counter : 30;
+            };
         };
-    };
-    uint32_t time;
-    InputKey key;
-    InputType type;
-} InputEvent;
+        uint32_t time;
+        InputKey key;
+        InputType type;
+    } InputEvent;
 
-/** Input pin state */
-typedef struct
-{
-    const InputPin pin;
-    // State
-    volatile bool state;
-    volatile uint8_t debounce;
-    InputTimer *press_timer;
-    volatile uint8_t press_counter;
-    volatile uint32_t counter;
-} InputPinState;
-
-class InputTimer : public frt::Timer
-{
-private:
-    InputPinState *_inputState;
-    frt::Publisher<InputEvent> *_pub;
-
-public:
-    InputTimer(InputPinState *inputState);
-    virtual ~InputTimer();
-    void Run() override;
-};
-
-// class InputService : public frt::Task<InputService, 1024>
-class InputService : public frt::Task<InputService>
-{
-public:
-    InputService(std::initializer_list<InputPin> pins);
-    virtual ~InputService();
-    bool run() override;
-    void input_isr();
-
-    inline const char *getKeyName(InputKey key)
+    /** Input pin state */
+    typedef struct
     {
-        for (auto &state : _inputPinStates)
+        const InputPin pin;
+        // State
+        volatile bool state;
+        volatile uint8_t debounce;
+        InputTimer *press_timer;
+        volatile uint8_t press_counter;
+        volatile uint32_t counter;
+    } InputPinState;
+
+    class InputTimer : public frt::Timer
+    {
+    private:
+        InputPinState *_inputState;
+        InputType _inputFilter;
+        frt::Publisher<InputEvent> *_pub;
+
+    public:
+        InputTimer(InputPinState *inputState);
+        virtual ~InputTimer();
+        void Run() override;
+
+        inline void setInputFilter(const InputType filter)
         {
-            if (state.pin.key == key)
-                return state.pin.name;
+            _inputFilter = filter;
         }
-        return "Unknown";
-    }
+    };
 
-    static const char *getTypeName(InputType type)
+    // class InputService : public frt::Task<InputService, 1024>
+    class InputService : public frt::Task<InputService>
     {
-        switch (type)
+    public:
+        InputService(std::initializer_list<InputPin> pins);
+        virtual ~InputService();
+        bool run() override;
+        void input_isr();
+
+        inline void setInputFilter(const InputType filter)
         {
-        case InputTypePress:
-            return "Press";
-        case InputTypeRelease:
-            return "Release";
-        case InputTypeShort:
-            return "Short";
-        case InputTypeLong:
-            return "Long";
-        case InputTypeRepeat:
-            return "Repeat";
-        default:
+            _inputFilter = filter;
+
+            for (auto &state : _inputPinStates)
+            {
+                state.press_timer->setInputFilter(filter);
+            }
+        }
+
+        inline const char *getKeyName(InputKey key)
+        {
+            for (auto &state : _inputPinStates)
+            {
+                if (state.pin.key == key)
+                    return state.pin.name;
+            }
             return "Unknown";
         }
-    }
 
-private:
-    std::vector<InputPinState> _inputPinStates;
-    volatile uint32_t _counter;
-    frt::Publisher<InputEvent> *_pub;
-};
+        static const char *getTypeName(InputType type)
+        {
+            switch (type)
+            {
+            case InputTypePress:
+                return "Press";
+            case InputTypeRelease:
+                return "Release";
+            case InputTypeShort:
+                return "Short";
+            case InputTypeLong:
+                return "Long";
+            case InputTypeRepeat:
+                return "Repeat";
+            default:
+                return "Unknown";
+            }
+        }
 
+    private:
+        std::vector<InputPinState> _inputPinStates;
+        volatile uint32_t _counter;
+        frt::Publisher<InputEvent> *_pub;
+        InputType _inputFilter;
+    };
+}
 #endif // __INPUT_SVC_H__

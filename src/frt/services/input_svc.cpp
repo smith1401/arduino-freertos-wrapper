@@ -1,6 +1,10 @@
 #include "input_svc.h"
 
-InputTimer::InputTimer(InputPinState *inputState) : frt::Timer(inputState->pin.name, pdMS_TO_TICKS(INPUT_PRESS_TICKS)), _inputState(inputState)
+using namespace frt;
+
+InputTimer::InputTimer(InputPinState *inputState) : frt::Timer(inputState->pin.name, pdMS_TO_TICKS(INPUT_PRESS_TICKS)),
+                                                    _inputState(inputState),
+                                                    _inputFilter(InputTypeMAX)
 {
     _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
 }
@@ -20,17 +24,22 @@ void InputTimer::Run()
     if (_inputState->press_counter == INPUT_LONG_PRESS_COUNTS)
     {
         event.type = InputTypeLong;
-        _pub->publish(event);
+
+        if (_inputFilter & event.type)
+            _pub->publish(event);
     }
     else if (_inputState->press_counter > INPUT_LONG_PRESS_COUNTS)
     {
         _inputState->press_counter--;
         event.type = InputTypeRepeat;
-        _pub->publish(event);
+
+        if (_inputFilter & event.type)
+            _pub->publish(event);
     }
 }
 
-InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter(0)
+InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter(0),
+                                                                        _inputFilter(InputTypeMAX)
 {
     for (auto pin : inputPins)
     {
@@ -115,14 +124,18 @@ bool InputService::run()
                 if (pinState.press_counter < INPUT_LONG_PRESS_COUNTS)
                 {
                     event.type = InputTypeShort;
-                    _pub->publish(event);
+
+                    if (_inputFilter & event.type)
+                        _pub->publish(event);
                 }
                 pinState.press_counter = 0;
             }
 
             // Send Press/Release event
             event.type = pinState.state ? InputTypePress : InputTypeRelease;
-            _pub->publish(event);
+
+            if (_inputFilter & event.type)
+                _pub->publish(event);
         }
     }
 
