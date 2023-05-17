@@ -19,6 +19,98 @@
 #error "Board not supported!"
 #endif
 
+#define FRT_TASK_NOTIFY_INDEX 0
+
+#ifndef FRT_WARN_UNUSED
+#define FRT_WARN_UNUSED __attribute__((warn_unused_result))
+#endif
+
+#ifndef FRT_IS_IRQ_MASKED
+#define FRT_IS_IRQ_MASKED() (__get_PRIMASK() != 0U)
+#endif
+
+#ifndef FRT_IS_IRQ_MODE
+#define FRT_IS_IRQ_MODE() (__get_IPSR() != 0U)
+
+#endif
+#ifndef FRT_IS_ISR
+#define FRT_IS_ISR() (FRT_IS_IRQ_MODE() || FRT_IS_IRQ_MASKED())
+#endif
+
+#ifdef ESP32
+        portMUX_TYPE mtx = portMUX_INITIALIZER_UNLOCKED;
+#ifndef FRT_CRITICAL_ENTER
+#define FRT_CRITICAL_ENTER()                                                         \
+        uint32_t __isrm = 0;                                                         \
+        bool __from_isr = FRT_IS_ISR();                                              \
+        bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
+        if (__from_isr)                                                              \
+        {                                                                            \
+                __isrm = taskENTER_CRITICAL_FROM_ISR(&mtx);                          \
+        }                                                                            \
+        else if (__kernel_running)                                                   \
+        {                                                                            \
+                taskENTER_CRITICAL(&mtx);                                            \
+        }                                                                            \
+        else                                                                         \
+        {                                                                            \
+                __disable_irq();                                                     \
+        }
+#endif
+
+#ifndef FRT_CRITICAL_EXIT
+#define FRT_CRITICAL_EXIT()                               \
+        if (__from_isr)                                   \
+        {                                                 \
+                taskEXIT_CRITICAL_FROM_ISR(__isrm, &mtx); \
+        }                                                 \
+        else if (__kernel_running)                        \
+        {                                                 \
+                taskEXIT_CRITICAL(&mtx);                  \
+        }                                                 \
+        else                                              \
+        {                                                 \
+                __enable_irq();                           \
+        }
+#endif
+#else
+#ifndef FRT_CRITICAL_ENTER
+#define FRT_CRITICAL_ENTER()                                                         \
+        uint32_t __isrm = 0;                                                         \
+        bool __from_isr = FRT_IS_ISR();                                              \
+        bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
+        if (__from_isr)                                                              \
+        {                                                                            \
+                __isrm = taskENTER_CRITICAL_FROM_ISR();                              \
+        }                                                                            \
+        else if (__kernel_running)                                                   \
+        {                                                                            \
+                taskENTER_CRITICAL();                                                \
+        }                                                                            \
+        else                                                                         \
+        {                                                                            \
+                __disable_irq();                                                     \
+        }
+#endif
+
+#ifndef FRT_CRITICAL_EXIT
+#define FRT_CRITICAL_EXIT()                         \
+        if (__from_isr)                             \
+        {                                           \
+                taskEXIT_CRITICAL_FROM_ISR(__isrm); \
+        }                                           \
+        else if (__kernel_running)                  \
+        {                                           \
+                taskEXIT_CRITICAL();                \
+        }                                           \
+        else                                        \
+        {                                           \
+                __enable_irq();                     \
+        }
+#endif
+#endif
+
+
 namespace frt
 {
         namespace detail
