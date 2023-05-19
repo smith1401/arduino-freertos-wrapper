@@ -1,5 +1,9 @@
 #include "input_svc.h"
 
+#ifdef ESP32
+#include <FunctionalInterrupt.h>
+#endif
+
 using namespace frt;
 
 InputTimer::InputTimer(InputPinState *inputState) : frt::Timer(inputState->pin.name, pdMS_TO_TICKS(INPUT_PRESS_TICKS)),
@@ -151,9 +155,18 @@ bool InputService::run()
     return true;
 }
 
+#ifdef ESP32
+void IRAM_ATTR InputService::input_isr()
+#else
 void InputService::input_isr()
+#endif
 {
-    preparePostFromInterrupt();
-    postFromInterrupt();
+    // FRT_CRITICAL_ENTER();
+    // post();
+    // FRT_CRITICAL_EXIT();
+    // preparePostFromInterrupt();
+    // postFromInterrupt();
     // finalizePostFromInterrupt();
+
+    FRT_LOG_DEBUG("ISR");
 }

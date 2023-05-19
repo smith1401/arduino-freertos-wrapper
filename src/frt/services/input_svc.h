@@ -3,7 +3,11 @@
 
 #include <Arduino.h>
 #include <vector>
+
+#ifdef ESP32
+#else
 #include <STM32FreeRTOS.h>
+#endif
 
 #include <frt/frt.h>
 
@@ -19,7 +23,7 @@ namespace frt
 #define INPUT_PRESS_TICKS 150
 #define INPUT_LONG_PRESS_COUNTS 4
 
-#define GPIO_Read(input_pin) (digitalRead(input_pin.pin.gpio) ^ (input_pin.pin.inverted))
+#define GPIO_Read(input_pin) (bool)((bool)digitalRead(input_pin.pin.gpio) ^ (input_pin.pin.inverted))
 
     class InputTimer;
 
@@ -103,8 +107,8 @@ namespace frt
         }
     };
 
-    // class InputService : public frt::Task<InputService, 1024>
-    class InputService : public frt::Task<InputService>
+    class InputService : public frt::Task<InputService, 1024>
+    // class InputService : public frt::Task<InputService>
     {
     public:
         InputService(std::initializer_list<InputPin> pins);
@@ -122,14 +126,35 @@ namespace frt
             }
         }
 
-        inline const char *getKeyName(InputKey key)
+        // inline const char *getKeyName(InputKey key)
+        // {
+        //     for (auto &state : _inputPinStates)
+        //     {
+        //         if (state.pin.key == key)
+        //             return state.pin.name;
+        //     }
+        //     return "Unknown";
+        // }
+
+        static const char *getKeyName(InputKey key)
         {
-            for (auto &state : _inputPinStates)
+            switch (key)
             {
-                if (state.pin.key == key)
-                    return state.pin.name;
+            case InputKeyUp:
+                return "Up";
+            case InputKeyDown:
+                return "Down";
+            case InputKeyRight:
+                return "Right";
+            case InputKeyLeft:
+                return "Left";
+            case InputKeyOk:
+                return "OK";
+            case InputKeyBack:
+                return "Back";
+            default:
+                return "Unknown";
             }
-            return "Unknown";
         }
 
         static const char *getTypeName(InputType type)

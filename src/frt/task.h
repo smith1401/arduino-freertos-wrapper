@@ -7,13 +7,16 @@
 
 namespace frt
 {
-    template <typename T, unsigned int STACK_SIZE = configMINIMAL_STACK_SIZE * sizeof(StackType_t)>
+    // template <typename T, unsigned int STACK_SIZE = configMINIMAL_STACK_SIZE * sizeof(StackType_t)>
+    template <typename T, unsigned int STACK_SIZE = 1024>
     class Task
     {
     public:
         Task() : running(false),
                  do_stop(false),
-                 handle(nullptr)
+                 handle(nullptr),
+                 name(""),
+                 higher_priority_task_woken(pdFALSE)
         {
         }
 
@@ -51,6 +54,7 @@ namespace frt
                        entryPoint,
                        name,
                        STACK_SIZE / sizeof(StackType_t),
+                       //    STACK_SIZE,
                        this,
                        priority,
                        &handle) == pdPASS;
@@ -85,16 +89,27 @@ namespace frt
 
         void post()
         {
-            if (FRT_IS_IRQ_MODE())
+            // uint32_t start = micros();
+
+            if (FRT_IS_ISR())
             {
                 higher_priority_task_woken = pdFALSE;
                 vTaskNotifyGiveFromISR(handle, &higher_priority_task_woken);
                 // detail::yieldFromIsr(higher_priority_task_woken);
+                // portYIELD_FROM_ISR(higher_priority_task_woken)
             }
             else
             {
                 xTaskNotifyGive(handle);
             }
+
+            // uint32_t duration = micros() - start;
+            // uint32_t stop = micros();
+        }
+
+        const TaskHandle_t *taskHandle() const
+        {
+            return &handle;
         }
 
     protected:
@@ -129,7 +144,8 @@ namespace frt
 
         bool wait()
         {
-            return ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            // return ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            return ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
         }
 
         bool wait(unsigned int msecs)

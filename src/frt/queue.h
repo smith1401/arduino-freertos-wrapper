@@ -9,19 +9,22 @@ namespace frt
     class Queue final
     {
     public:
-        Queue(uint32_t queue_size = 10) : handle(
-#if configSUPPORT_STATIC_ALLOCATION > 0
-                      xQueueCreateStatic(queue_size, sizeof(T), buffer, &state)
-#else
-                      xQueueCreate(queue_size, sizeof(T))
-#endif
-                  ),
-                  _queue_size(queue_size)
+        Queue(uint32_t queue_size = 10)
         {
+#if configSUPPORT_STATIC_ALLOCATION > 0
+            buffer = (uint8_t *)pvPortMalloc(queue_size * sizeof(T));
+            handle = xQueueCreateStatic(queue_size, sizeof(T), buffer, &state);
+#else
+            handle = xQueueCreate(queue_size, sizeof(T));
+#endif
+            _queue_size = queue_size;
         }
 
         ~Queue()
         {
+#if configSUPPORT_STATIC_ALLOCATION > 0
+            delete[] buffer;
+#endif
             vQueueDelete(handle);
         }
 
@@ -142,7 +145,8 @@ namespace frt
         BaseType_t higher_priority_task_woken_from_pop;
         uint32_t _queue_size;
 #if configSUPPORT_STATIC_ALLOCATION > 0
-        uint8_t buffer[ITEMS * sizeof(T)];
+        // uint8_t buffer[ITEMS * sizeof(T)];
+        uint8_t *buffer;
         StaticQueue_t state;
 #endif
     };
