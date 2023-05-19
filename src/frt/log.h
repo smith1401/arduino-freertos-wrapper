@@ -7,7 +7,7 @@
 #include "task.h"
 #include "messagebuffer.h"
 
-#define FRT_LOG_REGISTER_PRINTER(printer) frt::Log::getInstance()->registerPrinter(printer);
+#define FRT_LOG_REGISTER_STREAM(stream) frt::Log::getInstance()->registerStream(stream);
 // #define FRT_LOG_ENABLE() frt::Log::getInstance()->start(tskIDLE_PRIORITY + 1, "svc_log");
 
 #define FRT_LOG_LEVEL_TRACE() frt::Log::getInstance()->setLevel(frt::LogLevel::TRACE);
@@ -62,9 +62,10 @@ namespace frt
         static Log *instance;
         // MessageBuffer<MAX_LOG_SIZE> buffer;
         Mutex mutex;
-        std::vector<Print *> printers;
+        std::vector<Stream *> streams;
         LogLevel _level;
         bool _quiet;
+        char buf[MAX_LOG_SIZE];
 
         Log() : _quiet(false), _level(LogLevel::ERROR)
         {
@@ -76,7 +77,7 @@ namespace frt
 
         static Log *getInstance();
         // virtual bool run() override;
-        void registerPrinter(Print &p);
+        void registerStream(Stream *s);
         void setLevel(LogLevel level);
         void log(LogLevel level, const char *file, int line, const char *fmt, ...);
     };

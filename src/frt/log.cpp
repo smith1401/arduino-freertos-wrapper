@@ -13,9 +13,9 @@ Log *Log::getInstance()
     return instance;
 }
 
-void frt::Log::registerPrinter(Print &p)
+void frt::Log::registerStream(Stream *s)
 {
-    printers.push_back(&p);
+    streams.push_back(s);
 }
 
 void frt::Log::setLevel(LogLevel level)
@@ -46,18 +46,17 @@ void Log::log(LogLevel level, const char *file, int line, const char *fmt, ...)
 {
     // mutex.lock();
 
-    TaskStatus_t xTaskDetails;
+    // TaskStatus_t xTaskDetails;
+    // xTaskDetails.pcTaskName = "";
 
-    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
-        vTaskGetInfo(NULL, &xTaskDetails, pdFALSE, eInvalid);
+    // if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+    //     vTaskGetInfo(NULL, &xTaskDetails, pdFALSE, eInvalid);
 
-    bool task_valid = strcmp(xTaskDetails.pcTaskName, "") != 0;
+    // bool task_valid = strcmp(xTaskDetails.pcTaskName, "") != 0;
 
-    const char* task_name = task_valid ? xTaskDetails.pcTaskName : "NONE";
+    // const char* task_name = task_valid ? xTaskDetails.pcTaskName : "NONE";
     // int task_prio = task_valid ? xTaskDetails.uxCurrentPriority : -1;
     // int task_num= task_valid ? xTaskDetails.xTaskNumber : -1;
-
-    char buf[MAX_LOG_SIZE];
 
     LogEvent ev = {
         .fmt = fmt,
@@ -74,22 +73,26 @@ void Log::log(LogLevel level, const char *file, int line, const char *fmt, ...)
 
 #ifdef LOG_USE_COLOR
         // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level], ev.file, ev.line);
+        int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s \x1b[0m", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level]);
         // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s\x1b[0m \x1b[90mTask#%d %s[%d]\x1b[0m ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level], task_num, task_name, task_prio);
-        int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s\x1b[0m \x1b[90m%s\x1b[0m ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level], task_name);
+        // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s\x1b[0m \x1b[90m%s\x1b[0m ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level], task_name);
 #else
         // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %-5s %s:%d: ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_strings[ev.level], ev.file, ev.line);
+        int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %-5s ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_strings[ev.level]);
         // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %-5s Task#%d %s[%d] ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_strings[ev.level], task_num, task_name, task_prio);
-        int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %-5s %s ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_strings[ev.level], task_name);
+        // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %-5s %s ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_strings[ev.level], task_name);
 #endif
 
         size += vsnprintf(&buf[size], sizeof(buf) - size, fmt, ev.ap);
         buf[size++] = '\n';
         buf[size] = '\0';
 
-        for (auto &p : printers)
+        size_t sss = streams.size();
+
+        for (auto &s : streams)
         {
-            p->write(buf, size);
-            p->flush();
+            s->write(buf, size);
+            // s->flush();
         }
 
         //TODO: check if it can be done with message buffers. it isn't working at the moment. The advantage of this is that no logging task is needed.
