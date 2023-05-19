@@ -1,0 +1,143 @@
+#include "burst_firing_output_svc.h"
+
+#ifdef ESP32
+#include <FunctionalInterrupt.h>
+#endif
+
+using namespace frt;
+
+BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t output_pin, const uint8_t zero_cross_pin) : _output_pin(output_pin),
+                                                                                                                           _zero_cross_pin(zero_cross_pin),
+                                                                                                                           _burst_count(1),
+                                                                                                                           _zero_cross_count(0),
+                                                                                                                           _last_output_time(0)
+{
+    // Init zero-crossing input
+    pinMode(_zero_cross_pin, INPUT);
+    attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), std::bind(&BurstFiringOutputControlService::zero_cross_isr, this), RISING);
+
+    // Init output
+    pinMode(_output_pin, OUTPUT);
+
+    // Init timer
+    init_pulse_timer();
+
+    // Init output power subscriber
+    _sub_output_power = frt::pubsub::subscribe<OutputPower>(RECORD_OUTPUT_POWER, 1);
+}
+
+BurstFiringOutputControlService::~BurstFiringOutputControlService()
+{
+}
+
+bool BurstFiringOutputControlService::run()
+{
+    frt::OutputPower output_power = _sub_output_power->receive();
+
+    uint32_t bursts = map(output_power.power, 0, 100, 0, MAX_BURST_COUNT);
+
+    // if (bursts == 0 && output_power.power > 0)
+    //     bursts = 1;
+
+    {
+        FRT_CRITICAL_ENTER();
+        _burst_count = bursts;
+        FRT_CRITICAL_EXIT();
+    }
+
+    // FRT_LOG_DEBUG("New output power: %d -> %d bursts", output_power.power, bursts);
+
+    uint32_t now = xTaskGetTickCount();
+    uint32_t sleep_time_ms = (1 / (float)OUTPUT_RES_HZ) * 1000;
+    uint32_t elapsed_ms = (now - _last_output_time) * portTICK_PERIOD_MS;
+    _last_output_time = now;
+
+    if (elapsed_ms < sleep_time_ms)
+        msleep(sleep_time_ms - elapsed_ms);
+
+    return true;
+}
+
+#ifdef ESP32
+void IRAM_ATTR BurstFiringOutputControlService::zero_cross_isr()
+#else
+void BurstFiringOutputControlService::zero_cross_isr()
+#endif
+{
+    // If the number of bursts is greater than 0 -> pulse
+    // FRT_CRITICAL_ENTER();
+
+    if (_burst_count > 0)
+    {
+        pulse_output();
+        _burst_count--;
+    }
+
+    _zero_cross_count++;
+    // FRT_CRITICAL_EXIT();
+
+    // post();
+}
+
+void BurstFiringOutputControlService::init_pulse_timer()
+{
+#ifdef ESP32
+    if ((_pulse_timer = rmtInit(_output_pin, RMT_TX_MODE, RMT_MEM_128)) == NULL)
+    {
+        FRT_LOG_ERROR("Pulse Timer initialization failed");
+    }
+
+    // Set 1 µs resolution
+    rmtSetTick(_pulse_timer, 1000);
+
+    // Set pulse length in µs
+    _pulse_data.level0 = 1;
+    _pulse_data.duration0 = PULSE_TIME_US;
+    _pulse_data.level1 = 0;
+    _pulse_data.duration1 = 1000 - _pulse_data.duration0;
+#else
+    TIM_TypeDef *tim_instance = (TIM_TypeDef *)pinmap_peripheral(digitalPinToPinName(_output_pin), PinMap_PWM);
+    _pulse_timer_channel = STM_PIN_CHANNEL(pinmap_function(digitalPinToPinName(_output_pin), PinMap_PWM));
+    _pulse_timer = new HardwareTimer(tim_instance);
+
+    _pulse_timer->setMode(_pulse_timer_channel, TIMER_OUTPUT_COMPARE_PWM2, _output_pin);
+
+    tim_instance->PSC = _pulse_timer->getTimerClkFreq() / 1000000 - 1; // Set prescaler
+    tim_instance->ARR = PULSE_TIME_US - 1;                             // Set pulse width
+    tim_instance->CCR2 = PULSE_DELAY_US - 1;                           // Set delay
+    tim_instance->CR1 |= TIM_CR1_OPM;                                  // One pulse mode
+
+    _pulse_timer->refresh();
+#endif
+}
+
+void BurstFiringOutputControlService::pulse_timer_start()
+{
+#ifdef ESP32
+#else
+    if (!_pulse_timer->isRunning())
+    {
+        _pulse_timer->pause();
+        _pulse_timer->resume();
+    }
+#endif
+}
+
+void BurstFiringOutputControlService::pulse_timer_stop()
+{
+#ifdef ESP32
+#else
+    if (_pulse_timer->isRunning())
+        _pulse_timer->pause();
+#endif
+}
+
+void BurstFiringOutputControlService::pulse_output()
+{
+#ifdef ESP32
+    rmtWrite(_pulse_timer, &_pulse_data, 1);
+#else
+    _pulse_timer->pause();
+    _pulse_timer->resume();
+#endif
+}
