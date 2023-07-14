@@ -27,9 +27,12 @@ frt::PIDService::PIDService(float p, float i, float d) : _input(0.0),
     _pid->setOutputBounded(true);
 
     // Init subscriber sync
-    _sub_evt_sync = new frt::EventGroup();
-    _input_sub->addEvent(_sub_evt_sync, INPUT_EVT_SLOT);
-    _target_sub->addEvent(_sub_evt_sync, TARGET_EVT_SLOT);
+    // _sub_evt_sync = new frt::EventGroup();
+    // _input_sub->addEvent(_sub_evt_sync, INPUT_EVT_SLOT);
+    // _target_sub->addEvent(_sub_evt_sync, TARGET_EVT_SLOT);
+    _sub_queue_set = xQueueCreateSet(20);
+    _input_sub->addToSet(_sub_queue_set);
+    _target_sub->addToSet(_sub_queue_set);
 }
 
 frt::PIDService::~PIDService()
@@ -42,21 +45,47 @@ frt::PIDService::~PIDService()
 
 bool frt::PIDService::run()
 {
-    EventBits_t slots = _sub_evt_sync->waitBits(INPUT_EVT_SLOT | TARGET_EVT_SLOT, true, false);
+    // EventBits_t slots = _sub_evt_sync->waitBits(INPUT_EVT_SLOT | TARGET_EVT_SLOT, true, false);
 
-    if ((slots & INPUT_EVT_SLOT) != 0)
+    // if ((slots & INPUT_EVT_SLOT) != 0)
+    // {
+    //     // Calculate the mean of the input variable
+    //     msgs::Temperature input = _input_sub->receive();
+    //     _input = _input == 0.0f ? input.temperature : (_input + input.temperature) / 2.0f;
+    // }
+
+    // if ((slots & TARGET_EVT_SLOT) != 0)
+    // {
+    //     // Set target temperature
+    //     msgs::Temperature target = _target_sub->receive();
+    //     _pid->setTarget(target.temperature);
+    // }
+
+    QueueSetMemberHandle_t queue_set_member = xQueueSelectFromSet(_sub_queue_set, portMAX_DELAY);
+
+    // Temperature
+    if (_input_sub->canReceive(queue_set_member))
     {
-        // Calculate the mean of the input variable
-        msgs::Temperature input = _input_sub->receive();
+        frt::msgs::Temperature input;
+        if (_input_sub->receive(input))
+            _input = _input == 0.0f ? input.temperature : (_input + input.temperature) / 2.0f;
+    }
+
+    // Target
+    if (_target_sub->canReceive(queue_set_member))
+    {
+        frt::msgs::Temperature target;
+        if (_target_sub->receive(target))
+            _pid->setTarget(target.temperature);
+    }
+
+    msgs::Temperature input, target;
+
+    if (_input_sub->receive(input, 1))
         _input = _input == 0.0f ? input.temperature : (_input + input.temperature) / 2.0f;
-    }
 
-    if ((slots & TARGET_EVT_SLOT) != 0)
-    {
-        // Set target temperature
-        msgs::Temperature target = _target_sub->receive();
+    if (_target_sub->receive(target, 1))
         _pid->setTarget(target.temperature);
-    }
 
     uint32_t now = xTaskGetTickCount();
     uint32_t elapsed_ms = (now - _last_tick_time) * portTICK_PERIOD_MS;

@@ -105,6 +105,16 @@ namespace frt
             _evt_bit = evt_bit;
         }
 
+        void addToSet(QueueSetHandle_t &setHandle)
+        {
+            _queue.addToSet(setHandle);
+        }
+
+        bool canReceive(QueueSetMemberHandle_t &memberHandle)
+        {
+            return _queue.isMember(memberHandle);
+        }
+
         void send(const T &msg)
         {
             // If the size is just one, then override
@@ -132,13 +142,19 @@ namespace frt
             }
         }
 
-        T receive()
+        bool receive(T &msg)
         {
-            T msg;
+            return _queue.pop(msg);
+        }
 
-            _queue.pop(msg);
+        bool receive(T &msg, unsigned int msecs)
+        {
+            return _queue.pop(msg, msecs);
+        }
 
-            return msg;
+        bool receive(T &msg, unsigned int msecs, unsigned int &remainder)
+        {
+            return _queue.pop(msg, msecs, remainder);
         }
 
         explicit Subscriber(const Subscriber &other) = delete;

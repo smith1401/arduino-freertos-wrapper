@@ -7,6 +7,7 @@
 #if defined(STM32F1) || defined(STM32F2) || defined(STM32F4)
 #include <STM32FreeRTOS.h>
 #include <message_buffer.h>
+#include <queue.h>
 #elif defined(ESP32)
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>

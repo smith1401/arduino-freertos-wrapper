@@ -32,7 +32,10 @@ BurstFiringOutputControlService::~BurstFiringOutputControlService()
 
 bool BurstFiringOutputControlService::run()
 {
-    frt::OutputPower output_power = _sub_output_power->receive();
+    // frt::OutputPower output_power = _sub_output_power->receive();
+    frt::OutputPower output_power;
+
+    _sub_output_power->receive(output_power);
 
     uint32_t bursts = map(output_power.power, 0, 100, 0, MAX_BURST_COUNT);
 

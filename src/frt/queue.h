@@ -35,6 +35,16 @@ namespace frt
         {
             return _queue_size - uxQueueSpacesAvailable(handle);
         }
+        
+        void addToSet(QueueSetHandle_t &sethandle)
+        {
+            xQueueAddToSet(handle, sethandle);
+        }
+
+        bool isMember(QueueSetMemberHandle_t &memberHandle)
+        {
+            return handle == memberHandle;
+        }
 
         void override(const T &item)
         {
@@ -90,9 +100,9 @@ namespace frt
 #endif
         }
 
-        void pop(T &item)
+        bool pop(T &item)
         {
-            xQueueReceive(handle, &item, portMAX_DELAY);
+            return xQueueReceive(handle, &item, portMAX_DELAY);
         }
 
         bool pop(T &item, unsigned int msecs)
