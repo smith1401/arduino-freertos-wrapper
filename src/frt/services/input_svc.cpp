@@ -48,7 +48,7 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
     for (auto pin : inputPins)
     {
         pinMode(pin.gpio, INPUT_PULLUP);
-        attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
+        // attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
 
         InputPinState pinState{
             .pin = pin,
@@ -149,7 +149,8 @@ bool InputService::run()
     }
     else
     {
-        wait();
+        // wait();
+        msleep(10);
     }
 
     return true;
@@ -161,12 +162,13 @@ void IRAM_ATTR InputService::input_isr()
 void InputService::input_isr()
 #endif
 {
-    // FRT_CRITICAL_ENTER();
-    // post();
-    // FRT_CRITICAL_EXIT();
+    FRT_CRITICAL_ENTER();
+    post();
+    FRT_CRITICAL_EXIT();
     // preparePostFromInterrupt();
     // postFromInterrupt();
     // finalizePostFromInterrupt();
 
-    FRT_LOG_DEBUG("ISR");
+    // static int count = 0;
+    // FRT_LOG_DEBUG("ISR #%d", ++count);
 }
