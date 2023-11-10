@@ -154,11 +154,11 @@ namespace frt
         {
 
 #ifndef ESP32
+                // Start the kernel scheduler
                 assert(xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED);
+                vTaskStartScheduler();
 #endif
 
-                // Start the kernel scheduler
-                vTaskStartScheduler();
         }
 }
 

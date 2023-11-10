@@ -16,9 +16,6 @@ BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t o
     pinMode(_zero_cross_pin, INPUT);
     attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), std::bind(&BurstFiringOutputControlService::zero_cross_isr, this), RISING);
 
-    // Init output
-    pinMode(_output_pin, OUTPUT);
-
     // Init timer
     init_pulse_timer();
 
@@ -32,15 +29,10 @@ BurstFiringOutputControlService::~BurstFiringOutputControlService()
 
 bool BurstFiringOutputControlService::run()
 {
-    // frt::OutputPower output_power = _sub_output_power->receive();
     frt::OutputPower output_power;
 
     _sub_output_power->receive(output_power);
-
     uint32_t bursts = map(output_power.power, 0, 100, 0, MAX_BURST_COUNT);
-
-    // if (bursts == 0 && output_power.power > 0)
-    //     bursts = 1;
 
     {
         FRT_CRITICAL_ENTER();
@@ -49,6 +41,7 @@ bool BurstFiringOutputControlService::run()
     }
 
     // FRT_LOG_DEBUG("New output power: %d -> %d bursts", output_power.power, bursts);
+    // FRT_LOG_DEBUG("Bursts: %d\tPulses: %d", _burst_count, _zero_cross_count);
 
     uint32_t now = xTaskGetTickCount();
     uint32_t sleep_time_ms = (1 / (float)OUTPUT_RES_HZ) * 1000;
@@ -91,7 +84,8 @@ void BurstFiringOutputControlService::init_pulse_timer()
     }
 
     // Set 1 µs resolution
-    rmtSetTick(_pulse_timer, 1000);
+    float realTick = rmtSetTick(_pulse_timer, 1000);
+    FRT_LOG_DEBUG("RMT tick set to: %fns", realTick);
 
     // Set pulse length in µs
     _pulse_data.level0 = 1;
@@ -99,6 +93,9 @@ void BurstFiringOutputControlService::init_pulse_timer()
     _pulse_data.level1 = 0;
     _pulse_data.duration1 = 1000 - _pulse_data.duration0;
 #else
+    // Init output
+    pinMode(_output_pin, OUTPUT);
+
     TIM_TypeDef *tim_instance = (TIM_TypeDef *)pinmap_peripheral(digitalPinToPinName(_output_pin), PinMap_PWM);
     _pulse_timer_channel = STM_PIN_CHANNEL(pinmap_function(digitalPinToPinName(_output_pin), PinMap_PWM));
     _pulse_timer = new HardwareTimer(tim_instance);

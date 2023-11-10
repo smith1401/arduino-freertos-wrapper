@@ -48,7 +48,7 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
     for (auto pin : inputPins)
     {
         pinMode(pin.gpio, INPUT_PULLUP);
-        // attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
+        attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
 
         InputPinState pinState{
             .pin = pin,
@@ -66,8 +66,8 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
     }
 
     // TODO: Remove after debug
-    pinMode(A4, OUTPUT);
-    digitalWrite(A4, LOW);
+    pinMode(GPIO_NUM_0, OUTPUT);
+    digitalWrite(GPIO_NUM_0, LOW);
 
     _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
 }
@@ -149,8 +149,8 @@ bool InputService::run()
     }
     else
     {
-        // wait();
-        msleep(10);
+        wait();
+        // msleep(10);
     }
 
     return true;

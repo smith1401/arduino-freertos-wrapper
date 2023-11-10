@@ -16,6 +16,14 @@ namespace frt
         {
             float temperature;
         };
+
+        struct PID : public Message
+        {
+            float setpoint;
+            float p;
+            float i;
+            float d;
+        };
     }
 }
 
