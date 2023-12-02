@@ -8,7 +8,6 @@
 #include "messagebuffer.h"
 
 #define FRT_LOG_REGISTER_STREAM(stream) frt::Log::getInstance()->registerStream(stream);
-// #define FRT_LOG_ENABLE() frt::Log::getInstance()->start(tskIDLE_PRIORITY + 1, "svc_log");
 
 #define FRT_LOG_LEVEL_TRACE() frt::Log::getInstance()->setLevel(frt::LogLevel::TRACE);
 #define FRT_LOG_LEVEL_DEBUG() frt::Log::getInstance()->setLevel(frt::LogLevel::DEBUG);
@@ -56,12 +55,10 @@ namespace frt
         "\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"};
 #endif
 
-    class Log //: public frt::Task<Log>
+    class Log
     {
     private:
         static Log *instance;
-        // MessageBuffer<MAX_LOG_SIZE> buffer;
-        Mutex mutex;
         std::vector<Stream *> streams;
         LogLevel _level;
         bool _quiet;
@@ -76,7 +73,6 @@ namespace frt
         void operator=(const Log &) = delete;
 
         static Log *getInstance();
-        // virtual bool run() override;
         void registerStream(Stream *s);
         void setLevel(LogLevel level);
         void log(LogLevel level, const char *file, int line, const char *fmt, ...);
