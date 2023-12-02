@@ -21,7 +21,7 @@ namespace frt
 #define INPUT_DEBOUNCE_TICKS 4
 #define INPUT_DEBOUNCE_TICKS_HALF (INPUT_DEBOUNCE_TICKS / 2)
 #define INPUT_PRESS_TICKS 150
-#define INPUT_LONG_PRESS_COUNTS 4
+#define INPUT_LONG_PRESS_COUNTS 8
 
 #define GPIO_Read(input_pin) (bool)((bool)digitalRead(input_pin.pin.gpio) ^ (input_pin.pin.inverted))
 
