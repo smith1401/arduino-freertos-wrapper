@@ -4,7 +4,7 @@
 #include "output_control_svc.h"
 
 #define PULSE_DELAY_US 2 // Has to be greater than 1
-#define PULSE_TIME_US 500
+#define PULSE_TIME_US 1000
 #define AC_FREQUENCY 50
 #define MAX_BURST_COUNT (AC_FREQUENCY * 2) / OUTPUT_RES_HZ
 
@@ -27,6 +27,7 @@ namespace frt
         void pulse_output();
 
         uint32_t _last_output_time;
+        uint32_t _last_pid_evt_count;
 
         uint8_t _output_pin;
         uint8_t _zero_cross_pin;

@@ -10,7 +10,8 @@ BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t o
                                                                                                                            _zero_cross_pin(zero_cross_pin),
                                                                                                                            _burst_count(1),
                                                                                                                            _zero_cross_count(0),
-                                                                                                                           _last_output_time(0)
+                                                                                                                           _last_output_time(0),
+                                                                                                                           _last_pid_evt_count(0)
 {
     // Init zero-crossing input
     pinMode(_zero_cross_pin, INPUT);
@@ -21,6 +22,9 @@ BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t o
 
     // Init output power subscriber
     _sub_output_power = frt::pubsub::subscribe<OutputPower>(RECORD_OUTPUT_POWER, 1);
+
+    // Init pid calc event publisher
+    _pub_pid_calc_event = frt::pubsub::advertise<frt::msgs::Message>(RECORD_CALC_PID);
 }
 
 BurstFiringOutputControlService::~BurstFiringOutputControlService()
@@ -31,25 +35,34 @@ bool BurstFiringOutputControlService::run()
 {
     frt::OutputPower output_power;
 
-    _sub_output_power->receive(output_power);
-    uint32_t bursts = map(output_power.power, 0, 100, 0, MAX_BURST_COUNT);
-
+    if (_sub_output_power->receive(output_power, 1))
     {
+        uint32_t bursts = map(output_power.power, 0, 100, 0, MAX_BURST_COUNT);
+
         FRT_CRITICAL_ENTER();
         _burst_count = bursts;
         FRT_CRITICAL_EXIT();
     }
 
+    if (_zero_cross_count >= (_last_pid_evt_count + MAX_BURST_COUNT))
+    {
+        frt::msgs::Message msg;
+        msg.timestamp = xTaskGetTickCount();
+        _pub_pid_calc_event->publish(msg);
+
+        _last_pid_evt_count = _zero_cross_count;
+    }
+
     // FRT_LOG_DEBUG("New output power: %d -> %d bursts", output_power.power, bursts);
     // FRT_LOG_DEBUG("Bursts: %d\tPulses: %d", _burst_count, _zero_cross_count);
 
-    uint32_t now = xTaskGetTickCount();
-    uint32_t sleep_time_ms = (1 / (float)OUTPUT_RES_HZ) * 1000;
-    uint32_t elapsed_ms = (now - _last_output_time) * portTICK_PERIOD_MS;
-    _last_output_time = now;
+    // uint32_t now = xTaskGetTickCount();
+    // uint32_t sleep_time_ms = (1 / (float)OUTPUT_RES_HZ) * 1000;
+    // uint32_t elapsed_ms = (now - _last_output_time) * portTICK_PERIOD_MS;
+    // _last_output_time = now;
 
-    if (elapsed_ms < sleep_time_ms)
-        msleep(sleep_time_ms - elapsed_ms);
+    // if (elapsed_ms < sleep_time_ms)
+    //     msleep(sleep_time_ms - elapsed_ms);
 
     return true;
 }
@@ -61,7 +74,7 @@ void BurstFiringOutputControlService::zero_cross_isr()
 #endif
 {
     // If the number of bursts is greater than 0 -> pulse
-    // FRT_CRITICAL_ENTER();
+    FRT_CRITICAL_ENTER();
 
     if (_burst_count > 0)
     {
@@ -70,7 +83,8 @@ void BurstFiringOutputControlService::zero_cross_isr()
     }
 
     _zero_cross_count++;
-    // FRT_CRITICAL_EXIT();
+
+    FRT_CRITICAL_EXIT();
 
     // post();
 }
@@ -85,13 +99,13 @@ void BurstFiringOutputControlService::init_pulse_timer()
 
     // Set 1 µs resolution
     float realTick = rmtSetTick(_pulse_timer, 1000);
-    FRT_LOG_DEBUG("RMT tick set to: %fns", realTick);
+    FRT_LOG_TRACE("RMT tick set to: %fns", realTick);
 
     // Set pulse length in µs
     _pulse_data.level0 = 1;
     _pulse_data.duration0 = PULSE_TIME_US;
     _pulse_data.level1 = 0;
-    _pulse_data.duration1 = 1000 - _pulse_data.duration0;
+    _pulse_data.duration1 = 1;
 #else
     // Init output
     pinMode(_output_pin, OUTPUT);
