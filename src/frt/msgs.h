@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#define RECORD_TEMPERATURE  "temperature"
+
 namespace frt
 {
     namespace msgs
