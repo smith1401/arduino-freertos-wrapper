@@ -9,9 +9,10 @@ frt::PIDService::PIDService(float p, float i, float d) : _input(0.0),
 {
     // Init publisher and subscribers
     _output_pub = frt::pubsub::advertise<OutputPower>(RECORD_OUTPUT_POWER);
-    _input_sub = frt::pubsub::subscribe<msgs::Temperature>("temperature");
+    _input_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_TEMPERATURE);
     _target_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_PID_TARGET);
     _pid_sub = frt::pubsub::subscribe<msgs::PID>(RECORD_PID_VALUES);
+    _calc_sub = frt::pubsub::subscribe<msgs::Message>(RECORD_CALC_PID);
 
     // Init PID
     _pid = new PIDController<float>(
@@ -35,6 +36,7 @@ frt::PIDService::PIDService(float p, float i, float d) : _input(0.0),
     _input_sub->addToSet(_sub_queue_set);
     _target_sub->addToSet(_sub_queue_set);
     _pid_sub->addToSet(_sub_queue_set);
+    _calc_sub->addToSet(_sub_queue_set);
 }
 
 frt::PIDService::~PIDService()
@@ -82,7 +84,7 @@ bool frt::PIDService::run()
             _pid->setTarget(target.temperature);
     }
 
-    // PID
+    // PID parameters
     if (_pid_sub->canReceive(queue_set_member))
     {
         frt::msgs::PID pid;
@@ -91,6 +93,20 @@ bool frt::PIDService::run()
             // FRT_LOG_DEBUG("Setpoint: %.1f\tP: %.1f\tI: %.1f\tD: %.1f", pid.setpoint, pid.p, pid.i, pid.d);
             _pid->setTarget(pid.setpoint);
             _pid->setPID(pid.p, pid.i, pid.d);
+        }
+    }
+
+    // PID calculate
+    if (_calc_sub->canReceive(queue_set_member))
+    {
+        frt::msgs::Message msg;
+        if (_calc_sub->receive(msg))
+        {
+            _pid->tick();
+
+            OutputPower output;
+            output.power = static_cast<uint8_t>(_output);
+            _output_pub->publish(output);
         }
     }
 
@@ -110,19 +126,24 @@ bool frt::PIDService::run()
     //     _pid->setPID(pid.p, pid.i, pid.d);
     // }
 
-    uint32_t now = xTaskGetTickCount();
-    uint32_t elapsed_ms = (now - _last_tick_time) * portTICK_PERIOD_MS;
+    // uint32_t now = xTaskGetTickCount();
+    // uint32_t elapsed_ms = (now - _last_tick_time) * portTICK_PERIOD_MS;
 
-    if (elapsed_ms > OUTPUT_RATE_MS)
-    {
-        _pid->tick();
+    // if (elapsed_ms > OUTPUT_RATE_MS)
+    // {
+    //     _pid->tick();
 
-        OutputPower output;
-        output.power = static_cast<uint8_t>(_output);
-        _output_pub->publish(output);
+    //     OutputPower output;
+    //     output.power = static_cast<uint8_t>(_output);
+    //     _output_pub->publish(output);
 
-        _last_tick_time = now;
-    }
+    //     _last_tick_time = now;
+    // }
 
     return true;
+}
+
+float frt::PIDService::getTarget()
+{
+    return 10.5;
 }
