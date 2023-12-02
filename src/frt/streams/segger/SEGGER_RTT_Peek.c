@@ -1,4 +1,4 @@
-#include <SEGGER_RTT.h>
+#include "SEGGER_RTT.h"
 #include "SEGGER_RTT_Peek.h"
 
 /*********************************************************************
