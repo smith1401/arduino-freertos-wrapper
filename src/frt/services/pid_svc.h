@@ -11,6 +11,7 @@
 
 #include <frt/frt.h>
 #include <frt/services/output_control_svc.h>
+#include <frt/services/temperature_svc.h>
 #include <pid.h>
 
 #define RECORD_PID_TARGET "pid_target"
@@ -18,10 +19,10 @@
 
 namespace frt
 {
-    class PIDService : public frt::Task<PIDService>
+    class PIDService : public frt::Task<PIDService, 2048>
     {
     public:
-        PIDService(float p, float i, float d);
+        PIDService(float p, float i, float d, bool *calc_pid);
         virtual ~PIDService();
         bool run() override;
 
@@ -39,6 +40,7 @@ namespace frt
 
         float _input;
         float _output;
+        bool *_calc_pid;
 
         uint32_t _last_tick_time;
     };

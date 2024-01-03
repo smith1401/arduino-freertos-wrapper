@@ -3,16 +3,17 @@
 #define INPUT_EVT_SLOT (1 << 0)
 #define TARGET_EVT_SLOT (1 << 1)
 
-frt::PIDService::PIDService(float p, float i, float d) : _input(0.0),
-                                                         _output(0.0),
-                                                         _last_tick_time(0.0)
+frt::PIDService::PIDService(float p, float i, float d, bool *calc_pid) : _input(0.0),
+                                                                         _output(0.0),
+                                                                         _last_tick_time(0.0),
+                                                                         _calc_pid(calc_pid)
 {
     // Init publisher and subscribers
     _output_pub = frt::pubsub::advertise<OutputPower>(RECORD_OUTPUT_POWER);
     _input_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_TEMPERATURE);
     _target_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_PID_TARGET);
     _pid_sub = frt::pubsub::subscribe<msgs::PID>(RECORD_PID_VALUES);
-    _calc_sub = frt::pubsub::subscribe<msgs::Message>(RECORD_CALC_PID);
+    _calc_sub = frt::pubsub::subscribe<msgs::Message>(RECORD_CALC_PID, 1);
 
     // Init PID
     _pid = new PIDController<float>(
@@ -24,7 +25,7 @@ frt::PIDService::PIDService(float p, float i, float d) : _input(0.0),
         [this](float output)
         { _output = output; });
 
-    // _pid->registerTimeFunction(xTaskGetTickCount);
+    _pid->registerTimeFunction(millis);
     _pid->setOutputBounds(0.0, 100.0);
     _pid->setOutputBounded(true);
 
@@ -50,22 +51,6 @@ frt::PIDService::~PIDService()
 
 bool frt::PIDService::run()
 {
-    // EventBits_t slots = _sub_evt_sync->waitBits(INPUT_EVT_SLOT | TARGET_EVT_SLOT, true, false);
-
-    // if ((slots & INPUT_EVT_SLOT) != 0)
-    // {
-    //     // Calculate the mean of the input variable
-    //     msgs::Temperature input = _input_sub->receive();
-    //     _input = _input == 0.0f ? input.temperature : (_input + input.temperature) / 2.0f;
-    // }
-
-    // if ((slots & TARGET_EVT_SLOT) != 0)
-    // {
-    //     // Set target temperature
-    //     msgs::Temperature target = _target_sub->receive();
-    //     _pid->setTarget(target.temperature);
-    // }
-
     QueueSetMemberHandle_t queue_set_member = xQueueSelectFromSet(_sub_queue_set, portMAX_DELAY);
 
     // Temperature
@@ -81,7 +66,10 @@ bool frt::PIDService::run()
     {
         frt::msgs::Temperature target;
         if (_target_sub->receive(target))
+        {
+            FRT_LOG_DEBUG("Setpoint: %.1f", target.temperature);
             _pid->setTarget(target.temperature);
+        }
     }
 
     // PID parameters
@@ -90,7 +78,7 @@ bool frt::PIDService::run()
         frt::msgs::PID pid;
         if (_pid_sub->receive(pid))
         {
-            // FRT_LOG_DEBUG("Setpoint: %.1f\tP: %.1f\tI: %.1f\tD: %.1f", pid.setpoint, pid.p, pid.i, pid.d);
+            FRT_LOG_DEBUG("Setpoint: %.1f\tP: %2.3f\tI: %2.3f\tD: %2.3f", pid.setpoint, pid.p, pid.i, pid.d);
             _pid->setTarget(pid.setpoint);
             _pid->setPID(pid.p, pid.i, pid.d);
         }
@@ -99,32 +87,33 @@ bool frt::PIDService::run()
     // PID calculate
     if (_calc_sub->canReceive(queue_set_member))
     {
+        // TODO: check if calc_pid is really necessary
+        // frt::msgs::Message msg;
+        // OutputPower output;
+        // if (_calc_sub->receive(msg) && (*_calc_pid))
+        // {
+        //     _pid->tick();
+        //     output.power = static_cast<uint8_t>(_output);
+        //     _output_pub->publish(output);
+        // }
+        // else
+        // {
+        //     output.power = 0;
+        //     _output_pub->publish(output);
+        // }
+
         frt::msgs::Message msg;
         if (_calc_sub->receive(msg))
         {
+            OutputPower output;
+
             _pid->tick();
 
-            OutputPower output;
             output.power = static_cast<uint8_t>(_output);
+            // FRT_LOG_DEBUG("New output power: %d", output.power);
             _output_pub->publish(output);
         }
     }
-
-    // TODO: Why do we need this second step?
-    // msgs::Temperature input, target;
-    // msgs::PID pid;
-
-    // if (_input_sub->receive(input, 1))
-    //     _input = _input == 0.0f ? input.temperature : (_input + input.temperature) / 2.0f;
-
-    // if (_target_sub->receive(target, 1))
-    //     _pid->setTarget(target.temperature);
-
-    // if (_pid_sub->receive(pid, 1))
-    // {
-    //     _pid->setTarget(pid.setpoint);
-    //     _pid->setPID(pid.p, pid.i, pid.d);
-    // }
 
     // uint32_t now = xTaskGetTickCount();
     // uint32_t elapsed_ms = (now - _last_tick_time) * portTICK_PERIOD_MS;
