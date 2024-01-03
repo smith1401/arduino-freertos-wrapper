@@ -13,9 +13,9 @@ namespace frt
         {
 #if configSUPPORT_STATIC_ALLOCATION > 0
             buffer = (uint8_t *)pvPortMalloc(queue_size * sizeof(T));
-            handle = xQueueCreateStatic(queue_size, sizeof(T), buffer, &state);
+            _handle = xQueueCreateStatic(queue_size, sizeof(T), buffer, &state);
 #else
-            handle = xQueueCreate(queue_size, sizeof(T));
+            _handle = xQueueCreate(queue_size, sizeof(T));
 #endif
             _queue_size = queue_size;
         }
@@ -25,7 +25,7 @@ namespace frt
 #if configSUPPORT_STATIC_ALLOCATION > 0
             delete[] buffer;
 #endif
-            vQueueDelete(handle);
+            vQueueDelete(_handle);
         }
 
         explicit Queue(const Queue &other) = delete;
@@ -33,34 +33,39 @@ namespace frt
 
         unsigned int getFillLevel() const
         {
-            return _queue_size - uxQueueSpacesAvailable(handle);
+            return _queue_size - uxQueueSpacesAvailable(_handle);
         }
-        
+
         void addToSet(QueueSetHandle_t &sethandle)
         {
-            xQueueAddToSet(handle, sethandle);
+            xQueueAddToSet(_handle, sethandle);
         }
 
         bool isMember(QueueSetMemberHandle_t &memberHandle)
         {
-            return handle == memberHandle;
+            return _handle == memberHandle;
+        }
+
+        QueueHandle_t *handle()
+        {
+            return &_handle;
         }
 
         void override(const T &item)
         {
-            xQueueOverwrite(handle, &item);
+            xQueueOverwrite(_handle, &item);
         }
 
         void push(const T &item)
         {
-            xQueueSend(handle, &item, portMAX_DELAY);
+            xQueueSend(_handle, &item, portMAX_DELAY);
         }
 
         bool push(const T &item, unsigned int msecs)
         {
             const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-            return xQueueSend(handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
+            return xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
         }
 
         bool push(const T &item, unsigned int msecs, unsigned int &remainder)
@@ -69,7 +74,7 @@ namespace frt
             const TickType_t ticks = msecs / portTICK_PERIOD_MS;
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-            if (xQueueSend(handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+            if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
             {
                 remainder = 0;
                 return true;
@@ -85,7 +90,7 @@ namespace frt
 
         bool pushFromInterrupt(const T &item)
         {
-            return xQueueSendFromISR(handle, &item, &higher_priority_task_woken_from_push) == pdTRUE;
+            return xQueueSendFromISR(_handle, &item, &higher_priority_task_woken_from_push) == pdTRUE;
         }
 
         void finalizePushFromInterrupt() __attribute__((always_inline))
@@ -102,14 +107,14 @@ namespace frt
 
         bool pop(T &item)
         {
-            return xQueueReceive(handle, &item, portMAX_DELAY);
+            return xQueueReceive(_handle, &item, portMAX_DELAY);
         }
 
         bool pop(T &item, unsigned int msecs)
         {
             const TickType_t ticks = msecs / portTICK_PERIOD_MS;
 
-            return xQueueReceive(handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
+            return xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
         }
 
         bool pop(T &item, unsigned int msecs, unsigned int &remainder)
@@ -118,7 +123,7 @@ namespace frt
             const TickType_t ticks = msecs / portTICK_PERIOD_MS;
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-            if (xQueueReceive(handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+            if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
             {
                 remainder = 0;
                 return true;
@@ -134,7 +139,7 @@ namespace frt
 
         bool popFromInterrupt(T &item)
         {
-            return xQueueReceiveFromISR(handle, &item, &higher_priority_task_woken_from_pop);
+            return xQueueReceiveFromISR(_handle, &item, &higher_priority_task_woken_from_pop);
         }
 
         void finalizePopFromInterrupt() __attribute__((always_inline))
@@ -150,7 +155,7 @@ namespace frt
         }
 
     private:
-        QueueHandle_t handle;
+        QueueHandle_t _handle;
         BaseType_t higher_priority_task_woken_from_push;
         BaseType_t higher_priority_task_woken_from_pop;
         uint32_t _queue_size;
