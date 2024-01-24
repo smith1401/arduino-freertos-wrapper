@@ -2,7 +2,7 @@
 #include "segger/SEGGER_RTT.h"
 #include "segger/SEGGER_RTT_Peek.h"
 
-#ifdef STM32
+#if defined(STM32) || defined(NRF52)
 
 RTTStream::RTTStream()
 {

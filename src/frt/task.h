@@ -95,7 +95,7 @@ namespace frt
             {
                 higher_priority_task_woken = pdFALSE;
                 vTaskNotifyGiveFromISR(handle, &higher_priority_task_woken);
-                // detail::yieldFromIsr(higher_priority_task_woken);
+                detail::yieldFromIsr(higher_priority_task_woken);
                 // portYIELD_FROM_ISR(higher_priority_task_woken)
             }
             else

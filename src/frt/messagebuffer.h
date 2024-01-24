@@ -31,7 +31,11 @@ namespace frt
 
         unsigned int getFillLevel() const
         {
+#ifdef NRF52
+            return BUFFER_SIZE - xMessageBufferSpaceAvailable(handle);
+#else
             return BUFFER_SIZE - xMessageBufferSpacesAvailable(handle);
+#endif
         }
 
         unsigned int size() const

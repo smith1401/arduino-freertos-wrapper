@@ -1,6 +1,7 @@
 #ifndef __PID_TUNER_SVC_H__
 #define __PID_TUNER_SVC_H__
 
+#ifdef ESP32
 #include <Arduino.h>
 #include <frt/frt.h>
 #include <WiFi.h>
@@ -69,4 +70,5 @@ namespace frt
     // };
 }
 
+#endif
 #endif // __PID_TUNER_SVC_H__

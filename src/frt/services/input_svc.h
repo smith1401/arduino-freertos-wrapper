@@ -3,11 +3,7 @@
 
 #include <Arduino.h>
 #include <vector>
-
-#ifdef ESP32
-#else
-#include <STM32FreeRTOS.h>
-#endif
+#include <BindArg.h>
 
 #include <frt/frt.h>
 
@@ -41,24 +37,50 @@ namespace frt
 
     typedef struct
     {
-        const uint8_t gpio;
-        const InputKey key;
-        const bool inverted;
-        const char *name;
+        uint8_t gpio;
+        InputKey key;
+        bool inverted;
+        char *name;
     } InputPin;
 
     /** Input Types
      * Some of them are physical events and some logical
      */
-    typedef enum
+    // typedef enum
+    // {
+    //     InputTypePress = (1 << 0),   /**< Press event, emitted after debounce */
+    //     InputTypeRelease = (1 << 1), /**< Release event, emitted after debounce */
+    //     InputTypeShort = (1 << 2),   /**< Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval */
+    //     InputTypeLong = (1 << 3),    /**< Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease  */
+    //     InputTypeRepeat = (1 << 4),  /**< Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event */
+    //     InputTypeMAX = 0xFFFFFFFF,   /**< Special value for exceptional */
+    // } InputType;
+
+    enum class InputType : uint32_t
     {
-        InputTypePress = (1 << 0),   /**< Press event, emitted after debounce */
-        InputTypeRelease = (1 << 1), /**< Release event, emitted after debounce */
-        InputTypeShort = (1 << 2),   /**< Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval */
-        InputTypeLong = (1 << 3),    /**< Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease  */
-        InputTypeRepeat = (1 << 4),  /**< Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event */
-        InputTypeMAX = 0xFFFFFFFF,   /**< Special value for exceptional */
-    } InputType;
+        Press = (1 << 0),   /**< Press event, emitted after debounce */
+        Release = (1 << 1), /**< Release event, emitted after debounce */
+        Short = (1 << 2),   /**< Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval */
+        Long = (1 << 3),    /**< Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease  */
+        Repeat = (1 << 4),  /**< Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event */
+        MAX = 0xFFFFFFFF,   /**< Special value for exceptional */
+    };
+
+    // Explicitly define operators for enum class
+    inline InputType operator|(InputType a, InputType b)
+    {
+        return static_cast<InputType>(static_cast<int>(a) | static_cast<int>(b));
+    }
+
+    inline bool operator&(InputType a, InputType b)
+    {
+        return static_cast<bool>(static_cast<int>(a) & static_cast<int>(b));
+    }
+
+    inline bool operator!(InputType flags)
+    {
+        return static_cast<int>(flags) == 0;
+    }
 
     /** Input Event, dispatches with FuriPubSub */
     typedef struct
@@ -80,7 +102,7 @@ namespace frt
     /** Input pin state */
     typedef struct
     {
-        const InputPin pin;
+        InputPin pin;
         // State
         volatile bool state;
         volatile uint8_t debounce;
@@ -161,15 +183,15 @@ namespace frt
         {
             switch (type)
             {
-            case InputTypePress:
+            case InputType::Press:
                 return "Press";
-            case InputTypeRelease:
+            case InputType::Release:
                 return "Release";
-            case InputTypeShort:
+            case InputType::Short:
                 return "Short";
-            case InputTypeLong:
+            case InputType::Long:
                 return "Long";
-            case InputTypeRepeat:
+            case InputType::Repeat:
                 return "Repeat";
             default:
                 return "Unknown";
@@ -181,6 +203,7 @@ namespace frt
         volatile uint32_t _counter;
         frt::Publisher<InputEvent> *_pub;
         InputType _inputFilter;
+        bindArgVoidFunc_t _intr_gate = nullptr;
     };
 }
 #endif // __INPUT_SVC_H__
