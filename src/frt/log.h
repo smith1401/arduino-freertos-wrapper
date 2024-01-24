@@ -23,6 +23,9 @@
 #define FRT_LOG_ERROR(...) frt::Log::getInstance()->log(frt::LogLevel::ERROR, __FILE__, __LINE__, __VA_ARGS__)
 #define FRT_LOG_FATAL(...) frt::Log::getInstance()->log(frt::LogLevel::FATAL, __FILE__, __LINE__, __VA_ARGS__)
 
+#define FRT_LOG_BUFFER(buf, n) frt::Log::getInstance()->log_buffer(frt::LogLevel::TRACE, #buf, buf, n)
+#define FRT_LOG_BLANK() frt::Log::getInstance()->log_blank();
+
 #define MAX_LOG_SIZE 512UL
 
 namespace frt
@@ -47,21 +50,13 @@ namespace frt
         LogLevel level;
     } LogEvent;
 
-    static const char *level_strings[] = {
-        "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
-
-#ifdef LOG_USE_COLOR
-    static const char *level_colors[] = {
-        "\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"};
-#endif
-
     class Log
     {
     private:
         static Log *instance;
         std::vector<Stream *> streams;
-        LogLevel _level;
         bool _quiet;
+        LogLevel _level;
         char buf[MAX_LOG_SIZE];
 
         Log() : _quiet(false), _level(LogLevel::ERROR)
@@ -76,6 +71,8 @@ namespace frt
         void registerStream(Stream *s);
         void setLevel(LogLevel level);
         void log(LogLevel level, const char *file, int line, const char *fmt, ...);
+        void log_buffer(LogLevel level, const char* name, uint8_t *buffer, size_t len);
+        void log_blank();
     };
 }
 
