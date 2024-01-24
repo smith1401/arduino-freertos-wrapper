@@ -28,23 +28,23 @@ namespace frt
 
         void lock()
         {
-            TaskHandle_t t = xSemaphoreGetMutexHolder(handle);
+            // TaskHandle_t t = xSemaphoreGetMutexHolder(handle);
             xSemaphoreTake(handle, portMAX_DELAY);
-            t = xSemaphoreGetMutexHolder(handle);
+            // t = xSemaphoreGetMutexHolder(handle);
         }
 
         void lock(unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             xSemaphoreTake(handle, ticks);
         }
 
         void unlock()
         {
-            TaskHandle_t t = xSemaphoreGetMutexHolder(handle);
+            // TaskHandle_t t = xSemaphoreGetMutexHolder(handle);
             xSemaphoreGive(handle);
-            t = xSemaphoreGetMutexHolder(handle);
+            // t = xSemaphoreGetMutexHolder(handle);
         }
 
     private:
@@ -92,7 +92,7 @@ namespace frt
 
         bool wait(unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             return xSemaphoreTake(handle, max(1U, (unsigned int)ticks)) == pdTRUE;
         }
@@ -100,8 +100,8 @@ namespace frt
         bool wait(unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            // remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             if (xSemaphoreTake(handle, max(1U, (unsigned int)ticks)) == pdTRUE)
             {

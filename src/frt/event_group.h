@@ -62,7 +62,7 @@ namespace frt
 
         EventBits_t waitBits(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits, unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             return xEventGroupWaitBits(handle, bitsToWaitFor, clearOnExit, waitForAllBits, max(1U, (unsigned int)ticks));
         }
@@ -70,8 +70,8 @@ namespace frt
         EventBits_t waitBits(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            // remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             return xEventGroupWaitBits(handle, bitsToWaitFor, clearOnExit, waitForAllBits, max(1U, (unsigned int)ticks));
         }
@@ -83,7 +83,7 @@ namespace frt
 
         EventBits_t sync(const EventBits_t bitsToSet, const EventBits_t bitsToWaitFor, unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             return xEventGroupSync(handle, bitsToSet, bitsToWaitFor, max(1U, (unsigned int)ticks));
         }
@@ -91,8 +91,8 @@ namespace frt
         EventBits_t sync(const EventBits_t bitsToSet, const EventBits_t bitsToWaitFor, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            // remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             return xEventGroupSync(handle, bitsToSet, bitsToWaitFor, max(1U, (unsigned int)ticks));
         }
