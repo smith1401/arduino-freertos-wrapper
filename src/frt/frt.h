@@ -220,6 +220,7 @@ namespace frt
         }
 }
 
+#include "log.h"
 #include "mutex.h"
 #include "queue.h"
 #include "task.h"
@@ -229,6 +230,5 @@ namespace frt
 #include "pubsub.h"
 #include "node.h"
 #include "messagebuffer.h"
-#include "log.h"
 
 #endif // __FRT_H__

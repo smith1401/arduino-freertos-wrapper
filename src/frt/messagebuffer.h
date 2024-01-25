@@ -2,6 +2,7 @@
 #define __FRT_MESSAGEBUFFER_H__
 
 #include "frt.h"
+#include <functional>
 
 namespace frt
 {
@@ -53,7 +54,7 @@ namespace frt
         bool send(const uint8_t *data, size_t len, unsigned int msecs)
         {
 
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             size_t xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
             return (xBytesSent == len);
@@ -63,7 +64,7 @@ namespace frt
         {
 
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             if (xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks)) == len)
@@ -105,7 +106,7 @@ namespace frt
 
         size_t receive(uint8_t *data, size_t len, unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             return xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));
         }
@@ -113,7 +114,7 @@ namespace frt
         size_t receive(uint8_t *data, size_t len, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             if (xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks)) > 0)
