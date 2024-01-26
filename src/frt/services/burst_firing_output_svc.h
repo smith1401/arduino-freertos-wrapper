@@ -42,7 +42,7 @@ namespace frt
         rmt_data_t _pulse_data;
 #elif defined(STM32)
         HardwareTimer *_pulse_timer;
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #warning "Pulse timer is not implemented yet for NRF52"
 #endif
 

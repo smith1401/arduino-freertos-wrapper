@@ -125,7 +125,7 @@ void BurstFiringOutputControlService::init_pulse_timer()
     tim_instance->CR1 |= TIM_CR1_OPM;                                  // One pulse mode
 
     _pulse_timer->refresh();
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
     #warning "Pulse timer is not implemented yet for NRF52"
 #endif
 }
@@ -139,7 +139,7 @@ void BurstFiringOutputControlService::pulse_timer_start()
         _pulse_timer->pause();
         _pulse_timer->resume();
     }
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #endif
 }
 
@@ -149,7 +149,7 @@ void BurstFiringOutputControlService::pulse_timer_stop()
 #elif defined(STM32)
     if (_pulse_timer->isRunning())
         _pulse_timer->pause();
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #endif
 }
 
@@ -160,6 +160,6 @@ void BurstFiringOutputControlService::pulse_output()
 #elif defined(STM32)
     _pulse_timer->pause();
     _pulse_timer->resume();
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #endif
 }

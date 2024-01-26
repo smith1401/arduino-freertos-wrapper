@@ -122,7 +122,7 @@ void frt::Log::log_buffer(LogLevel level, const char *name, uint8_t *buffer, siz
 #ifdef LOG_USE_COLOR
         int size = snprintf(buf, sizeof(buf), "%02lu:%02lu:%03lu %s%-5s \x1b[0m", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[level], level_strings[level]);
 #else
-        int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %-5s ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_strings[ev.level]);
+        int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %-5s ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_strings[level]);
 #endif
 
         size += snprintf(buf + size, sizeof(buf) - size, "%s[%d]: ", name, len);

@@ -16,7 +16,7 @@
 #include <freertos/message_buffer.h>
 #include <freertos/timers.h>
 #include <freertos/task.h>
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #include <FreeRTOS.h>
 #include <event_groups.h>
 #include <queue.h>
@@ -52,7 +52,7 @@
 #ifndef FRT_IS_ISR
 #define FRT_IS_ISR() (FRT_IS_IRQ_MODE() || FRT_IS_IRQ_MASKED())
 #endif
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #ifndef FRT_IS_ISR
 #define FRT_IS_ISR() isInISR()
 #endif
@@ -128,7 +128,7 @@
                 __enable_irq();                     \
         }
 #endif
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #ifndef FRT_CRITICAL_ENTER
 #define FRT_CRITICAL_ENTER()                                                         \
         bool __from_isr = FRT_IS_ISR();                                              \
@@ -193,7 +193,7 @@ namespace frt
                         taskYIELD();
 #endif
                 }
-#elif defined(NRF52)
+#elif defined(NRF52) || defined(NRF52840_XXAA)
                 inline void yieldFromIsr(BaseType_t &tasks_woken) __attribute__((always_inline));
                 void yieldFromIsr(BaseType_t &tasks_woken)
                 {

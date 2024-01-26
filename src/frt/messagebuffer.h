@@ -32,7 +32,7 @@ namespace frt
 
         unsigned int getFillLevel() const
         {
-#ifdef NRF52
+#if defined(NRF52) || defined(NRF52840_XXAA)
             return BUFFER_SIZE - xMessageBufferSpaceAvailable(handle);
 #else
             return BUFFER_SIZE - xMessageBufferSpacesAvailable(handle);
