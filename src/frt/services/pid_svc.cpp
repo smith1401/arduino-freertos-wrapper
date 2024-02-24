@@ -28,6 +28,7 @@ frt::PIDService::PIDService(float p, float i, float d, bool *calc_pid) : _input(
     _pid->registerTimeFunction(millis);
     _pid->setOutputBounds(0.0, 100.0);
     _pid->setOutputBounded(true);
+    _pid->setMaxIntegralCumulation(1000);
 
     // Init subscriber sync
     // _sub_evt_sync = new frt::EventGroup();
@@ -67,6 +68,9 @@ bool frt::PIDService::run()
         frt::msgs::Temperature target;
         if (_target_sub->receive(target))
         {
+            // Limit target temperature to 300 degrees
+            target.temperature = min<float>(300, target.temperature);
+            
             FRT_LOG_DEBUG("Setpoint: %.1f", target.temperature);
             _pid->setTarget(target.temperature);
         }
@@ -108,6 +112,7 @@ bool frt::PIDService::run()
             OutputPower output;
 
             _pid->tick();
+            FRT_LOG_DEBUG("%.3f %.3f %.3f", _pid->getProportionalComponent(), _pid->getIntegralComponent(), _pid->getDerivativeComponent());
 
             output.power = static_cast<uint8_t>(_output);
             // FRT_LOG_DEBUG("New output power: %d", output.power);
