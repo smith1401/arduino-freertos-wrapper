@@ -3,26 +3,27 @@
 
 #include <Arduino.h>
 #include <vector>
-// #include <algorithm>
-// #include <functional>
 #include <algorithm>
 #include <numeric>
-
-#ifdef ESP32
-#else
-#include <STM32FreeRTOS.h>
-#endif
-
 #include <frt/frt.h>
 
+#if defined(ESP32)
 #include "driver/i2s.h"
 #include "driver/rtc_io.h"
+#elif defined (STM32)
+#warning "Temperature service with I2S DMA transfer not implemented yet for STM32"
+#elif defined (NRF52)
+#warning "Temperature service with I2S DMA transfer not implemented yet for NRF52"
+#endif
 
 #define RECORD_TEMPERATURE "temperature"
 #define TEMP_SENS_OVERSAMPLING 16
 #define TEMP_SENS_INTERVAL_MS 250
 #define DMA_MODE 1
 #define DMA_BUF_SIZE 1000
+
+// TODO: add implementation for STM32 and NRF52
+#ifdef ESP32
 
 namespace frt
 {
@@ -66,4 +67,6 @@ namespace frt
         bool run() override;
     };
 }
+#endif
+
 #endif // __TEMPERATURE_SVC_H__

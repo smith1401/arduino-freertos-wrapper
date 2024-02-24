@@ -41,15 +41,11 @@ namespace frt
         {
             size_t key = hash_cstr_gnu(topic);
 
-            uint32_t s = publishers.size();
-
             // Create a temporary publisher on the heap
             auto pub = new Publisher<T>(topic);
 
             // Try to emplace this publisher
             auto ret = publishers.emplace(key, pub);
-
-            s = publishers.size();
 
             // Delete temporary publisher if the publisher with this topic already exists
             if (!ret.second)

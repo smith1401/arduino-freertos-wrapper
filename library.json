@@ -11,5 +11,8 @@
     "platforms": "ststm32",
     "build": {
         "libArchive": false
+    },
+    "dependencies": {
+        "external-repo": "https://github.com/openlab-vn-ua/BindArg.git"
     }
 }

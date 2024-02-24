@@ -1,5 +1,7 @@
 #include "pid_tuner_svc.h"
 
+#ifdef ESP32
+
 using namespace frt;
 
 PIDTunerServiceTCP::PIDTunerServiceTCP(const char *ssid, const char *password, uint16_t port) : _client(nullptr)
@@ -129,3 +131,5 @@ bool PIDTunerServiceTCP::run()
 
 //     return true;
 // }
+
+#endif

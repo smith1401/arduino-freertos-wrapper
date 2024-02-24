@@ -4,15 +4,10 @@
 #include <Arduino.h>
 #include <vector>
 
-#ifdef ESP32
-#else
-#include <STM32FreeRTOS.h>
-#endif
-
 #include <frt/frt.h>
 #include <frt/services/output_control_svc.h>
 #include <frt/services/temperature_svc.h>
-#include <pid.h>
+#include <frt/pid/pid.h>
 
 #define RECORD_PID_TARGET "pid_target"
 #define RECORD_PID_VALUES "pid_values"
@@ -40,9 +35,9 @@ namespace frt
 
         float _input;
         float _output;
+        uint32_t _last_tick_time;
         bool *_calc_pid;
 
-        uint32_t _last_tick_time;
     };
 
 }

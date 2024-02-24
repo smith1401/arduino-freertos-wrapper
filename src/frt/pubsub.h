@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <functional>
+#include <algorithm>
 #include <Arduino.h>
 #include "msgs.h"
 #include "queue.h"
@@ -75,9 +76,9 @@ namespace frt
     {
     private:
         typedef std::function<void(const T *)> SubscriberCallback;
+        Queue<T> _queue;
         uint32_t _queue_size;
         const char *_topic;
-        Queue<T> _queue;
         EventGroup *_evt_grp;
         EventBits_t _evt_bit;
 
@@ -87,16 +88,16 @@ namespace frt
                                                                   _topic(topic),
                                                                   _evt_grp(nullptr)
         {
-            // auto man = Manager::getInstance();
-            // auto pub = man->aquirePublisher<T>(_topic);
-            // pub->addSubscriber(this);
+            auto man = Manager::getInstance();
+            auto pub = man->aquirePublisher<T>(_topic);
+            pub->addSubscriber(this);
         }
 
         ~Subscriber()
         {
-            // auto man = Manager::getInstance();
-            // auto pub = man->aquirePublisher<T>(_topic);
-            // pub->removeSubscriber(this);
+            auto man = Manager::getInstance();
+            auto pub = man->aquirePublisher<T>(_topic);
+            pub->removeSubscriber(this);
         }
 
         void addEvent(EventGroup *evt_grp, const EventBits_t evt_bit)

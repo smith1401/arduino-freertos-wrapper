@@ -1,4 +1,6 @@
 #include "temperature_svc.h"
+// TODO: add implementation for STM32 and NRF52
+#ifdef ESP32
 frt::TemperatureService::TemperatureService(int pin, uint8_t resolution_bits, float nominal_resistance, float reference_resistance, float beta, float nominal_temperature, float corr_factor) : _pin(pin),
                                                                                                                                                                                                 _resolution_bits(resolution_bits),
                                                                                                                                                                                                 _nominal_resistance(nominal_resistance),
@@ -134,3 +136,5 @@ bool frt::TemperatureService::run()
 
     return true;
 }
+
+#endif

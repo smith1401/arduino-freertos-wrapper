@@ -68,7 +68,7 @@ namespace frt
 
         bool push(const T &item, unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             return xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
         }
@@ -76,7 +76,7 @@ namespace frt
         bool push(const T &item, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
@@ -117,7 +117,7 @@ namespace frt
 
         bool pop(T &item, unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             return xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
         }
@@ -125,7 +125,7 @@ namespace frt
         bool pop(T &item, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)

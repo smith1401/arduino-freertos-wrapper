@@ -8,7 +8,7 @@ using namespace frt;
 
 InputTimer::InputTimer(InputPinState *inputState) : frt::Timer(inputState->pin.name, pdMS_TO_TICKS(INPUT_PRESS_TICKS)),
                                                     _inputState(inputState),
-                                                    _inputFilter(InputTypeMAX)
+                                                    _inputFilter(InputType::MAX)
 {
     _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
 }
@@ -27,7 +27,7 @@ void InputTimer::Run()
     _inputState->press_counter++;
     if (_inputState->press_counter == INPUT_LONG_PRESS_COUNTS)
     {
-        event.type = InputTypeLong;
+        event.type = InputType::Long;
 
         if (_inputFilter & event.type)
             _pub->publish(event);
@@ -35,7 +35,7 @@ void InputTimer::Run()
     else if (_inputState->press_counter > INPUT_LONG_PRESS_COUNTS)
     {
         _inputState->press_counter--;
-        event.type = InputTypeRepeat;
+        event.type = InputType::Repeat;
 
         if (_inputFilter & event.type)
             _pub->publish(event);
@@ -43,19 +43,21 @@ void InputTimer::Run()
 }
 
 InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter(0),
-                                                                        _inputFilter(InputTypeMAX)
+                                                                        _inputFilter(InputType::MAX)
 {
     for (auto pin : inputPins)
     {
         pinMode(pin.gpio, INPUT_PULLUP);
-        attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
+        // attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
 
-        InputPinState pinState{
-            .pin = pin,
-            .state = GPIO_Read(pinState),
-            .debounce = INPUT_DEBOUNCE_TICKS_HALF,
-            // .press_timer = new InputTimer(&pinState),
-            .press_counter = 0};
+        _intr_gate = bindArgGateThisAllocate(&InputService::input_isr, this);
+        attachInterrupt(pin.gpio, _intr_gate, CHANGE);
+
+        InputPinState pinState;
+        pinState.pin = pin;
+        pinState.state = GPIO_Read(pinState);
+        pinState.debounce = INPUT_DEBOUNCE_TICKS_HALF;
+        pinState.press_counter = 0;
 
         _inputPinStates.push_back(pinState);
     }
@@ -65,9 +67,11 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
         state.press_timer = new InputTimer(&state);
     }
 
+#ifdef ESP32
     // TODO: Remove after debug
     pinMode(GPIO_NUM_0, OUTPUT);
     digitalWrite(GPIO_NUM_0, LOW);
+#endif
 
     _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
 }
@@ -127,7 +131,7 @@ bool InputService::run()
                 pinState.press_timer->Stop();
                 if (pinState.press_counter < INPUT_LONG_PRESS_COUNTS)
                 {
-                    event.type = InputTypeShort;
+                    event.type = InputType::Short;
 
                     if (_inputFilter & event.type)
                         _pub->publish(event);
@@ -136,7 +140,7 @@ bool InputService::run()
             }
 
             // Send Press/Release event
-            event.type = pinState.state ? InputTypePress : InputTypeRelease;
+            event.type = pinState.state ? InputType::Press : InputType::Release;
 
             if (_inputFilter & event.type)
                 _pub->publish(event);
@@ -165,6 +169,7 @@ void InputService::input_isr()
     FRT_CRITICAL_ENTER();
     post();
     FRT_CRITICAL_EXIT();
+
     // preparePostFromInterrupt();
     // postFromInterrupt();
     // finalizePostFromInterrupt();

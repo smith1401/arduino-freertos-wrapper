@@ -100,7 +100,7 @@ namespace frt
             {
                 higher_priority_task_woken = pdFALSE;
                 vTaskNotifyGiveFromISR(handle, &higher_priority_task_woken);
-                // detail::yieldFromIsr(higher_priority_task_woken);
+                detail::yieldFromIsr(higher_priority_task_woken);
                 // portYIELD_FROM_ISR(higher_priority_task_woken)
             }
             else
@@ -127,7 +127,7 @@ namespace frt
 
         void msleep(unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             if (!FRT_IS_ISR() && xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
             {
@@ -138,7 +138,7 @@ namespace frt
         void msleep(unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             if (!FRT_IS_ISR() && xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
@@ -155,7 +155,7 @@ namespace frt
 
         bool wait(unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
             return ulTaskNotifyTake(pdTRUE, max(1U, (unsigned int)ticks));
         }
@@ -163,7 +163,7 @@ namespace frt
         bool wait(unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             uint32_t notifiedValue;

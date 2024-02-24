@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#ifdef STM32
+#if defined(STM32) || defined(NRF52) || defined(NRF52840_XXAA)
 
 class RTTStream : public Stream
 {

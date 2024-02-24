@@ -6,16 +6,19 @@
 
 using namespace frt;
 
-BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t output_pin, const uint8_t zero_cross_pin) : _output_pin(output_pin),
+BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t output_pin, const uint8_t zero_cross_pin) : _last_output_time(0),
+                                                                                                                           _last_pid_evt_count(0),
+                                                                                                                           _output_pin(output_pin),
                                                                                                                            _zero_cross_pin(zero_cross_pin),
                                                                                                                            _burst_count(1),
-                                                                                                                           _zero_cross_count(0),
-                                                                                                                           _last_output_time(0),
-                                                                                                                           _last_pid_evt_count(0)
+                                                                                                                           _zero_cross_count(0)
 {
     // Init zero-crossing input
     pinMode(_zero_cross_pin, INPUT);
-    attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), std::bind(&BurstFiringOutputControlService::zero_cross_isr, this), RISING);
+    // attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), std::bind(&BurstFiringOutputControlService::zero_cross_isr, this), RISING);
+
+    _intr_gate = bindArgGateThisAllocate(&BurstFiringOutputControlService::zero_cross_isr, this);
+    attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), _intr_gate, RISING);
 
     // Init timer
     init_pulse_timer();
@@ -91,7 +94,7 @@ void BurstFiringOutputControlService::zero_cross_isr()
 
 void BurstFiringOutputControlService::init_pulse_timer()
 {
-#ifdef ESP32
+#if defined(ESP32)
     if ((_pulse_timer = rmtInit(_output_pin, RMT_TX_MODE, RMT_MEM_128)) == NULL)
     {
         FRT_LOG_ERROR("Pulse Timer initialization failed");
@@ -106,7 +109,7 @@ void BurstFiringOutputControlService::init_pulse_timer()
     _pulse_data.duration0 = PULSE_TIME_US;
     _pulse_data.level1 = 0;
     _pulse_data.duration1 = 1;
-#else
+#elif defined(STM32)
     // Init output
     pinMode(_output_pin, OUTPUT);
 
@@ -122,36 +125,41 @@ void BurstFiringOutputControlService::init_pulse_timer()
     tim_instance->CR1 |= TIM_CR1_OPM;                                  // One pulse mode
 
     _pulse_timer->refresh();
+#elif defined(NRF52) || defined(NRF52840_XXAA)
+    #warning "Pulse timer is not implemented yet for NRF52"
 #endif
 }
 
 void BurstFiringOutputControlService::pulse_timer_start()
 {
-#ifdef ESP32
-#else
+#if defined(ESP32)
+#elif defined(STM32)
     if (!_pulse_timer->isRunning())
     {
         _pulse_timer->pause();
         _pulse_timer->resume();
     }
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #endif
 }
 
 void BurstFiringOutputControlService::pulse_timer_stop()
 {
-#ifdef ESP32
-#else
+#if defined(ESP32)
+#elif defined(STM32)
     if (_pulse_timer->isRunning())
         _pulse_timer->pause();
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #endif
 }
 
 void BurstFiringOutputControlService::pulse_output()
 {
-#ifdef ESP32
+#if defined(ESP32)
     rmtWrite(_pulse_timer, &_pulse_data, 1);
-#else
+#elif defined(STM32)
     _pulse_timer->pause();
     _pulse_timer->resume();
+#elif defined(NRF52) || defined(NRF52840_XXAA)
 #endif
 }
