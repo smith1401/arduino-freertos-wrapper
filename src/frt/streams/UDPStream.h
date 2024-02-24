@@ -6,6 +6,9 @@
 #ifdef ESP32
 #include <WiFi.h>
 #include <AsyncUDP.h>
+#include <CircularBuffer.hpp>
+
+#include "frt/frt.h"
 
 class UDPStream : public Stream
 {
@@ -14,15 +17,16 @@ public:
     ~UDPStream();
 
     /* reading */
-    virtual int available();
-    virtual int read();
-    virtual size_t readBytes(char *buffer, size_t length);
-    virtual int peek();
+    virtual int available() override;
+    virtual int read() override;
+    virtual size_t readBytes(char *buffer, size_t length) override;
+    virtual String readString() override;
+    virtual int peek() override;
 
     /* writing */
-    virtual size_t write(uint8_t ch);
-    virtual size_t write(const uint8_t *buffer, size_t size);
-    virtual void flush();
+    virtual size_t write(uint8_t ch) override;
+    virtual size_t write(const uint8_t *buffer, size_t size) override;
+    virtual void flush() override;
     using Print::write;
     template <typename... Args>
     void printf(const char *f, Args... args)
@@ -39,7 +43,10 @@ private:
     uint8_t m_conn_led_pin;
     IPAddress m_server_ip;
     AsyncUDP m_udp;
-    QueueHandle_t m_packet_queue;
+    // frt::Queue<AsyncUDPPacket *> m_packet_queue;
+    // AsyncUDPPacket *m_current_packet;
+    CircularBuffer<uint8_t, 1024> m_receive_buffer;
+    // QueueHandle_t m_packet_queue;
 };
 
 #endif

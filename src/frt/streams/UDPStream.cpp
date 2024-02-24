@@ -6,58 +6,95 @@ UDPStream::UDPStream(int connLedPin)
 {
     m_conn_led_pin = connLedPin < 0 ? LED_BUILTIN : connLedPin;
     pinMode(m_conn_led_pin, OUTPUT);
-
-    m_packet_queue = xQueueCreate(10, sizeof(AsyncUDPPacket));
+    // m_packet_queue = xQueueCreate(10, sizeof(AsyncUDPPacket));
 }
 
 UDPStream::~UDPStream()
 {
-    vQueueDelete(m_packet_queue);
+    // vQueueDelete(m_packet_queue);
 }
 
 int UDPStream::available()
 {
-    return uxQueueMessagesWaiting(m_packet_queue);
+    return m_receive_buffer.size();
+    // return m_packet_queue.available();
+    // return uxQueueMessagesWaiting(m_packet_queue);
 }
 
 int UDPStream::read()
 {
-    AsyncUDPPacket *packet;
-    if (xQueueReceive(m_packet_queue, packet, (TickType_t)10))
-    {
-        return packet->read();
-    }
-    else
-    {
-        return 0;
-    }
+    return m_receive_buffer.shift();
+
+    // AsyncUDPPacket *packet;
+    // if (m_packet_queue.pop(packet, 10))
+    // // if (xQueueReceive(m_packet_queue, packet, (TickType_t)10))
+    // {
+    //     FRT_LOG_DEBUG("Got new message with len=%d %08x", packet->length(), packet);
+    //     FRT_LOG_DEBUG("Got new message with len=%d %08x", m_current_packet->length(), m_current_packet);
+    //     return -1;
+    //     // return packet->read();
+    // }
+    // else
+    // {
+    //     return 0;
+    // }
 }
 
 size_t UDPStream::readBytes(char *buffer, size_t length)
 {
-    AsyncUDPPacket *packet;
-    if (xQueueReceive(m_packet_queue, packet, (TickType_t)10))
+    size_t i;
+    for (i = 0; i < length; i++)
     {
-        packet->readBytes(buffer, length);
-        return packet->length();
+        if (m_receive_buffer.isEmpty())
+            break;
+
+        buffer[i] = m_receive_buffer.shift();
     }
-    else
+
+    return i + 1;
+
+    // AsyncUDPPacket *packet;
+    // if (m_packet_queue.pop(packet, 10))
+    // // if (xQueueReceive(m_packet_queue, packet, (TickType_t)10))
+    // {
+    //     packet->readBytes(buffer, length);
+    //     return packet->length();
+    // }
+    // else
+    // {
+    //     return 0;
+    // }
+}
+
+String UDPStream::readString()
+{
+    String str;
+    char c;
+
+    FRT_LOG_INFO("READSTRING");
+
+    while (m_receive_buffer.available() && (c = (char)m_receive_buffer.shift()) != '\0')
     {
-        return 0;
+        str += c;
     }
+
+    return str;
 }
 
 int UDPStream::peek()
 {
-    AsyncUDPPacket *packet;
-    if (xQueuePeek(m_packet_queue, packet, (TickType_t)10))
-    {
-        return packet->length();
-    }
-    else
-    {
-        return 0;
-    }
+    return m_receive_buffer.first();
+
+    // AsyncUDPPacket *packet;
+    // if (m_packet_queue.peek(packet, 10))
+    // // if (xQueuePeek(m_packet_queue, packet, (TickType_t)10))
+    // {
+    //     return packet->length();
+    // }
+    // else
+    // {
+    //     return 0;
+    // }
 }
 
 size_t UDPStream::write(uint8_t ch)
@@ -72,6 +109,7 @@ size_t UDPStream::write(const uint8_t *buffer, size_t size)
 
 void UDPStream::flush()
 {
+    m_receive_buffer.clear();
 }
 
 void UDPStream::begin(const char *ssid, const char *password, const char *serverAddress, const uint16_t serverPort)
@@ -83,7 +121,7 @@ void UDPStream::begin(const char *ssid, const char *password, const char *server
         error_handler();
     }
 
-    Serial.printf("Connected to WiFi with address %s\n", WiFi.localIP().toString().c_str());
+    FRT_LOG_INFO("Connected to WiFi with address %s\r\n", WiFi.localIP().toString().c_str());
 
     m_server_ip.fromString(serverAddress);
 
@@ -93,20 +131,31 @@ void UDPStream::begin(const char *ssid, const char *password, const char *server
                        {
                            UDPStream *stream = (UDPStream *)arg;
 
-                           if (stream->m_packet_queue != 0)
+                           for (size_t i = 0; i < packet.length(); i++)
                            {
-                               xQueueSend(stream->m_packet_queue, &packet, 0);
-                           } },
+                               char c = (char)packet.read();
+                            //    Serial.print(c);
+                               stream->m_receive_buffer.push(c);
+                           }
+
+                           //    stream->m_packet_queue.push(&packet, portMAX_DELAY);
+
+                       },
                        this);
 
-        digitalWrite(m_conn_led_pin, HIGH);
+        // digitalWrite(m_conn_led_pin, HIGH);
     }
     else
     {
         error_handler();
     }
 
-    Serial.printf("Connected to UDP server with address %s on port %d\n", m_server_ip.toString().c_str(), serverPort);
+    FRT_LOG_INFO("Connected to UDP server with address %s on port %d\n", m_server_ip.toString().c_str(), serverPort);
+}
+
+UDPStream::operator bool()
+{
+    return m_udp.connected();
 }
 
 void UDPStream::error_handler()
