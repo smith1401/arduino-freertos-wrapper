@@ -84,7 +84,12 @@ namespace frt
 
         unsigned int getUsedStackSize() const
         {
-            return STACK_SIZE - uxTaskGetStackHighWaterMark(handle) * sizeof(StackType_t);
+            return STACK_SIZE - getRemainingStackSize();
+        }
+
+        unsigned int getRemainingStackSize() const
+        {
+            return uxTaskGetStackHighWaterMark(handle) * sizeof(StackType_t);
         }
 
         void post()
