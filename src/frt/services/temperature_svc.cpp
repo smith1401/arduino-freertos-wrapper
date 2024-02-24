@@ -103,7 +103,7 @@ bool frt::TemperatureService::run()
             t.timestamp = xTaskGetTickCount();
             t.temperature = convert_to_deg_c(median);
 
-            FRT_LOG_DEBUG("I2S bytes read: %d -> %.2f [%.2f C]", bytes_read, (median / 4095.0) * 1023.0, t.temperature);
+            FRT_LOG_TRACE("I2S bytes read: %d -> %.2f [%.2f C]", bytes_read, (median / 4095.0) * 1023.0, t.temperature);
             if (t.temperature < 0.0f)
                 t.temperature = 0.0f;
 
