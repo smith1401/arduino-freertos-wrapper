@@ -36,6 +36,11 @@ namespace frt
             return _queue_size - uxQueueSpacesAvailable(_handle);
         }
 
+        unsigned int available() const
+        {
+            return uxQueueMessagesWaiting(_handle);
+        }
+
         void addToSet(QueueSetHandle_t &sethandle)
         {
             xQueueAddToSet(_handle, sethandle);
@@ -124,6 +129,33 @@ namespace frt
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+            {
+                remainder = 0;
+                return true;
+            }
+
+            return false;
+        }
+
+        void peek(T &item)
+        {
+            return xQueuePeek(_handle, &item, portMAX_DELAY);
+        }
+
+        bool peek(T &item, unsigned int msecs)
+        {
+            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+
+            return xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
+        }
+
+        bool peek(T &item, unsigned int msecs, unsigned int &remainder)
+        {
+            msecs += remainder;
+            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+
+            if (xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
             {
                 remainder = 0;
                 return true;
