@@ -185,7 +185,8 @@ namespace frt
                 void yieldFromIsr(BaseType_t &tasks_woken)
                 {
 #ifdef ESP32
-                        if (!tasks_woken) return;
+                        if (!tasks_woken)
+                                return;
 #if defined(portYIELD_FROM_ISR)
                         portYIELD_FROM_ISR();
 #elif defined(portEND_SWITCHING_ISR)

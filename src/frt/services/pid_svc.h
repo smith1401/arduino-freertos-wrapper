@@ -28,7 +28,7 @@ namespace frt
         Subscriber<msgs::Temperature> *_input_sub;
         Subscriber<msgs::Temperature> *_target_sub;
         Subscriber<msgs::PID> *_pid_sub;
-        Subscriber<msgs::Message> *_calc_sub;
+        Subscriber<msgs::Message, 1> *_calc_sub;
         EventGroup *_sub_evt_sync;
         QueueSetHandle_t _sub_queue_set;
         PIDController<float> *_pid;

@@ -18,7 +18,7 @@ namespace frt
     class OutputControlService : public frt::Task<OutputControlService, 2048>
     {
     protected:
-        frt::Subscriber<OutputPower> *_sub_output_power;
+        frt::Subscriber<OutputPower, 1> *_sub_output_power;
         frt::Publisher<frt::msgs::Message> *_pub_pid_calc_event;
     };
 

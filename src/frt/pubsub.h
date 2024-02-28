@@ -18,15 +18,15 @@ namespace frt
         virtual ~IPublisher() {}
     };
 
-    template <typename T>
+    template <typename T, unsigned int QUEUE_SIZE = 10>
     class Subscriber;
 
-    template <typename T>
+    template <typename T, unsigned int QUEUE_SIZE>
     class Publisher : public IPublisher
     {
     private:
         const char *_topic;
-        std::vector<Subscriber<T> *> _subscribers;
+        std::vector<Subscriber<T, QUEUE_SIZE> *> _subscribers;
 
     public:
         Publisher(const char *topic) : _topic(topic)
@@ -35,21 +35,21 @@ namespace frt
 
         ~Publisher()
         {
-            for (auto &sub : _subscribers)
-            {
-                delete sub;
-            }
+            // for (auto &sub : _subscribers)
+            // {
+            //     delete sub;
+            // }
         }
 
         explicit Publisher(const Publisher &other) = delete;
         Publisher &operator=(const Publisher &other) = delete;
 
-        void addSubscriber(Subscriber<T> *sub)
+        void addSubscriber(Subscriber<T, QUEUE_SIZE> *sub)
         {
             _subscribers.push_back(sub);
         }
 
-        bool removeSubscriber(Subscriber<T> *sub)
+        bool removeSubscriber(Subscriber<T, QUEUE_SIZE> *sub)
         {
             auto it = std::find(_subscribers.begin(), _subscribers.end(), sub);
 
@@ -71,25 +71,22 @@ namespace frt
         }
     };
 
-    template <typename T>
-    class Subscriber
+    template <typename T, unsigned int QUEUE_SIZE>
+    class Subscriber final
     {
     private:
         typedef std::function<void(const T *)> SubscriberCallback;
-        Queue<T> _queue;
-        uint32_t _queue_size;
+        Queue<T, QUEUE_SIZE> _queue;
         const char *_topic;
         EventGroup *_evt_grp;
         EventBits_t _evt_bit;
 
     public:
-        Subscriber(const char *topic, uint32_t queue_size = 10) : _queue(queue_size),
-                                                                  _queue_size(queue_size),
-                                                                  _topic(topic),
-                                                                  _evt_grp(nullptr)
+        Subscriber(const char *topic) : _topic(topic),
+                                        _evt_grp(nullptr)
         {
             auto man = Manager::getInstance();
-            auto pub = man->aquirePublisher<T>(_topic);
+            auto pub = man->aquirePublisher<T, QUEUE_SIZE>(_topic);
             pub->addSubscriber(this);
         }
 
@@ -119,12 +116,12 @@ namespace frt
         void send(const T &msg)
         {
             // If the size is just one, then override
-            if (_queue_size == 1)
+            if (QUEUE_SIZE == 1)
             {
                 _queue.override(msg);
             }
             // If the queue is full, pop the oldest elements and push the new one
-            else if (_queue.getFillLevel() == _queue_size)
+            else if (_queue.getFillLevel() == QUEUE_SIZE)
             {
                 T temp;
                 _queue.pop(temp);
@@ -164,22 +161,22 @@ namespace frt
 
     namespace pubsub
     {
-        template <typename M>
-        Publisher<M> *advertise(const char *topic)
+        template <typename M, unsigned int QUEUE_SIZE = 10>
+        Publisher<M, QUEUE_SIZE> *advertise(const char *topic)
         {
             frt::Manager *man = Manager::getInstance();
-            Publisher<M> *pub = man->aquirePublisher<M>(topic);
+            Publisher<M, QUEUE_SIZE> *pub = man->aquirePublisher<M, QUEUE_SIZE>(topic);
 
             return pub;
         }
 
-        template <typename M>
-        Subscriber<M> *subscribe(const char *topic, uint32_t queue_size = 10)
+        template <typename M, unsigned int QUEUE_SIZE = 10>
+        Subscriber<M, QUEUE_SIZE> *subscribe(const char *topic)
         {
-            Subscriber<M> *sub = new Subscriber<M>(topic, queue_size);
+            Subscriber<M, QUEUE_SIZE> *sub = new Subscriber<M, QUEUE_SIZE>(topic);
 
             frt::Manager *man = Manager::getInstance();
-            Publisher<M> *pub = man->aquirePublisher<M>(topic);
+            Publisher<M, QUEUE_SIZE> *pub = man->aquirePublisher<M, QUEUE_SIZE>(topic);
 
             pub->addSubscriber(sub);
 

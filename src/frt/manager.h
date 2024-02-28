@@ -10,17 +10,14 @@ namespace frt
 {
     class IPublisher;
 
-    template <typename T>
+    template <typename T, unsigned int QUEUE_SIZE = 10>
     class Publisher;
-
-    // class Node;
 
     class Manager
     {
     private:
         static Manager *instance;
         std::map<size_t, IPublisher *> publishers;
-        // std::map<const char *, Node *> nodes;
 
         static size_t hash_cstr_gnu(const char *s)
         {
@@ -36,13 +33,13 @@ namespace frt
 
         static Manager *getInstance();
 
-        template <typename T>
-        Publisher<T> *aquirePublisher(const char *topic)
+        template <typename T, unsigned int QUEUE_SIZE = 10>
+        Publisher<T, QUEUE_SIZE> *aquirePublisher(const char *topic)
         {
             size_t key = hash_cstr_gnu(topic);
 
             // Create a temporary publisher on the heap
-            auto pub = new Publisher<T>(topic);
+            auto pub = new Publisher<T, QUEUE_SIZE>(topic);
 
             // Try to emplace this publisher
             auto ret = publishers.emplace(key, pub);
@@ -53,14 +50,10 @@ namespace frt
                 delete pub;
             }
 
-            return static_cast<Publisher<T> *>((*ret.first).second);
+            return static_cast<Publisher<T, QUEUE_SIZE> *>((*ret.first).second);
         }
 
         bool removePublisher(const char *topic);
-
-        // bool addNode(const char *name, Node *node);
-        // bool removeNode(const char *name);
-        // Node *getNode(const char *name);
     };
 }
 

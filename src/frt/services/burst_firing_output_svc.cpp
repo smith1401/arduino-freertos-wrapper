@@ -27,7 +27,7 @@ BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t o
     init_pulse_timer();
 
     // Init output power subscriber
-    _sub_output_power = frt::pubsub::subscribe<OutputPower>(RECORD_OUTPUT_POWER, 1);
+    _sub_output_power = frt::pubsub::subscribe<OutputPower, 1>(RECORD_OUTPUT_POWER);
 
     // Init pid calc event publisher
     _pub_pid_calc_event = frt::pubsub::advertise<frt::msgs::Message>(RECORD_CALC_PID);

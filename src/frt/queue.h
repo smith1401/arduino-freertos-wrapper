@@ -5,26 +5,24 @@
 
 namespace frt
 {
-    template <typename T>
+    template <typename T, unsigned int QUEUE_SIZE = 10>
     class Queue final
     {
     public:
-        Queue(uint32_t queue_size = 10)
+        Queue()
         {
 #if configSUPPORT_STATIC_ALLOCATION > 0
-            buffer = (uint8_t *)pvPortMalloc(queue_size * sizeof(T));
-            _handle = xQueueCreateStatic(queue_size, sizeof(T), buffer, &state);
+            _handle = xQueueCreateStatic(QUEUE_SIZE, sizeof(T), buffer, &state);
 #else
-            _handle = xQueueCreate(queue_size, sizeof(T));
+            _handle = xQueueCreate(QUEUE_SIZE, sizeof(T));
 #endif
-            _queue_size = queue_size;
         }
 
         ~Queue()
         {
-#if configSUPPORT_STATIC_ALLOCATION > 0
-            delete[] buffer;
-#endif
+// #if configSUPPORT_STATIC_ALLOCATION > 0
+//             delete[] buffer;
+// #endif
             vQueueDelete(_handle);
         }
 
@@ -33,12 +31,15 @@ namespace frt
 
         unsigned int getFillLevel() const
         {
-            return _queue_size - uxQueueSpacesAvailable(_handle);
+            return QUEUE_SIZE - uxQueueSpacesAvailable(_handle);
         }
 
         unsigned int available() const
         {
-            return uxQueueMessagesWaiting(_handle);
+            if (FRT_IS_ISR())
+                return uxQueueMessagesWaitingFromISR(_handle);
+            else
+                return uxQueueMessagesWaiting(_handle);
         }
 
         void addToSet(QueueSetHandle_t &sethandle)
@@ -56,134 +57,258 @@ namespace frt
             return &_handle;
         }
 
-        void override(const T &item)
+        bool override(const T &item)
         {
-            xQueueOverwrite(_handle, &item);
+            BaseType_t taskWoken = pdFALSE;
+            if (FRT_IS_ISR())
+            {
+                if (xQueueOverwriteFromISR(_handle, &item, &taskWoken) != pdTRUE)
+                {
+                    return false;
+                }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+                return xQueueOverwrite(_handle, &item);
+
+            return true;
         }
 
-        void push(const T &item)
+        bool push(const T &item)
         {
-            xQueueSend(_handle, &item, portMAX_DELAY);
+            BaseType_t taskWoken = pdFALSE;
+
+            if (FRT_IS_ISR())
+            {
+                if (xQueueSendFromISR(_handle, &item, &taskWoken) != pdTRUE)
+                {
+                    return false;
+                }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                if (xQueueSend(_handle, &item, portMAX_DELAY) != pdTRUE)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         bool push(const T &item, unsigned int msecs)
         {
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            BaseType_t taskWoken = pdFALSE;
 
-            return xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
+            if (FRT_IS_ISR())
+            {
+                if (xQueueSendFromISR(_handle, &item, &taskWoken) != pdTRUE)
+                {
+                    return false;
+                }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks) != pdTRUE))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         bool push(const T &item, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
+
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            BaseType_t taskWoken = pdFALSE;
 
-            if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+            if (FRT_IS_ISR())
             {
-                remainder = 0;
-                return true;
+                if (xQueueSendFromISR(_handle, &item, &taskWoken) == pdTRUE)
+                {
+                    remainder = 0;
+                    detail::yieldFromIsr(taskWoken);
+                    return true;
+                }
+            }
+            else
+            {
+                if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+                {
+                    remainder = 0;
+                    return true;
+                }
             }
 
             return false;
         }
 
-        void preparePushFromInterrupt()
-        {
-            higher_priority_task_woken_from_push = 0;
-        }
-
-        bool pushFromInterrupt(const T &item)
-        {
-            return xQueueSendFromISR(_handle, &item, &higher_priority_task_woken_from_push) == pdTRUE;
-        }
-
-        void finalizePushFromInterrupt() __attribute__((always_inline))
-        {
-            detail::yieldFromIsr(higher_priority_task_woken_from_push);
-        }
-
         bool pop(T &item)
         {
-            return xQueueReceive(_handle, &item, portMAX_DELAY);
+            BaseType_t taskWoken = pdFALSE;
+
+            if (FRT_IS_ISR())
+            {
+                if (xQueueReceiveFromISR(_handle, &item, &taskWoken) != pdTRUE)
+                {
+                    return false;
+                }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                if (xQueueReceive(_handle, &item, portMAX_DELAY) != pdTRUE)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         bool pop(T &item, unsigned int msecs)
         {
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            BaseType_t taskWoken = pdFALSE;
 
-            return xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
+            if (FRT_IS_ISR())
+            {
+                if (xQueueReceiveFromISR(_handle, &item, &taskWoken) != pdTRUE)
+                {
+                    return false;
+                }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks) != pdTRUE))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         bool pop(T &item, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
+
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            BaseType_t taskWoken = pdFALSE;
 
-            if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+            if (FRT_IS_ISR())
             {
-                remainder = 0;
-                return true;
+                if (xQueueReceiveFromISR(_handle, &item, &taskWoken) == pdTRUE)
+                {
+                    remainder = 0;
+                    detail::yieldFromIsr(taskWoken);
+                    return true;
+                }
+            }
+            else
+            {
+                if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+                {
+                    remainder = 0;
+                    return true;
+                }
             }
 
             return false;
         }
 
-        void peek(T &item)
+        bool peek(T &item)
         {
-            return xQueuePeek(_handle, &item, portMAX_DELAY);
+            BaseType_t taskWoken = pdFALSE;
+
+            if (FRT_IS_ISR())
+            {
+                if (xQueuePeekFromISR(_handle, &item, &taskWoken) != pdTRUE)
+                {
+                    return false;
+                }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                if (xQueuePeek(_handle, &item, portMAX_DELAY) != pdTRUE)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         bool peek(T &item, unsigned int msecs)
         {
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            BaseType_t taskWoken = pdFALSE;
 
-            return xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE;
+            if (FRT_IS_ISR())
+            {
+                if (xQueuePeekFromISR(_handle, &item, &taskWoken) != pdTRUE)
+                {
+                    return false;
+                }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                if (xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks) != pdTRUE))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         bool peek(T &item, unsigned int msecs, unsigned int &remainder)
         {
             msecs += remainder;
-            const TickType_t ticks = msecs / portTICK_PERIOD_MS;
-            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-            if (xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+            const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            BaseType_t taskWoken = pdFALSE;
+
+            if (FRT_IS_ISR())
             {
-                remainder = 0;
-                return true;
+                if (xQueuePeekFromISR(_handle, &item, &taskWoken) == pdTRUE)
+                {
+                    remainder = 0;
+                    detail::yieldFromIsr(taskWoken);
+                    return true;
+                }
+            }
+            else
+            {
+                if (xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+                {
+                    remainder = 0;
+                    return true;
+                }
             }
 
             return false;
         }
 
-        void preparePopFromInterrupt()
-        {
-            higher_priority_task_woken_from_pop = 0;
-        }
-
-        bool popFromInterrupt(T &item)
-        {
-            return xQueueReceiveFromISR(_handle, &item, &higher_priority_task_woken_from_pop);
-        }
-
-        void finalizePopFromInterrupt() __attribute__((always_inline))
-        {
-            detail::yieldFromIsr(higher_priority_task_woken_from_pop);
-        }
-
     private:
         QueueHandle_t _handle;
-        BaseType_t higher_priority_task_woken_from_push;
-        BaseType_t higher_priority_task_woken_from_pop;
-        uint32_t _queue_size;
 #if configSUPPORT_STATIC_ALLOCATION > 0
-        // uint8_t buffer[ITEMS * sizeof(T)];
-        uint8_t *buffer;
+        uint8_t buffer[QUEUE_SIZE * sizeof(T)];
         StaticQueue_t state;
 #endif
     };
-
 }
 
 #endif // __FRT_QUEUE_H__

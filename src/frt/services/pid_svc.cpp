@@ -13,7 +13,7 @@ frt::PIDService::PIDService(float p, float i, float d, bool *calc_pid) : _input(
     _input_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_TEMPERATURE);
     _target_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_PID_TARGET);
     _pid_sub = frt::pubsub::subscribe<msgs::PID>(RECORD_PID_VALUES);
-    _calc_sub = frt::pubsub::subscribe<msgs::Message>(RECORD_CALC_PID, 1);
+    _calc_sub = frt::pubsub::subscribe<msgs::Message, 1>(RECORD_CALC_PID);
 
     // Init PID
     _pid = new PIDController<float>(
