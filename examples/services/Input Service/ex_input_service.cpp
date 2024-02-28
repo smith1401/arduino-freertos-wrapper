@@ -2,11 +2,15 @@
 #include <frt/frt.h>
 #include <frt/services/input_svc.h>
 
-// Define Buttons for input
-#define PIN_BUTTON_1 26
-#define PIN_BUTTON_2 27
+#if defined(PIN_BUTTON)
+#define TEST_BTN PIN_BUTTON
+#elif defined(USER_BTN)
+#define TEST_BTN USER_BTN
+#elif defined(KEY_BUILTIN)
+#define TEST_BTN KEY_BUILTIN
+#endif
 
-class InputHandlerTask : public frt::Task<InputHandlerTask, 2048>
+class InputHandlerTask : public frt::Task<InputHandlerTask>
 {
 public:
     InputHandlerTask()
@@ -22,6 +26,7 @@ public:
         if (input_sub->receive(evt))
         {
             FRT_LOG_INFO("Button [%s]: %s", frt::InputService::getKeyName(evt.key), frt::InputService::getTypeName(evt.type));
+            FRT_LOG_INFO("Remaining stack size: %d", getRemainingStackSize());
         }
 
         return true;
@@ -44,27 +49,29 @@ void setup()
     FRT_LOG_INFO("--- FRT Examples: Input Service ---");
 
     inp_svc = new frt::InputService{
-        {.gpio = PIN_BUTTON_1, .key = frt::InputKeyOk, .inverted = true, .name = "USER"},
-        {.gpio = PIN_BUTTON_2, .key = frt::InputKeyBack, .inverted = true, .name = "USER"},
+        {.gpio = TEST_BTN, .key = frt::InputKeyOk, .inverted = true, .name = "USER"},
     };
 
     /*
     Filter by button press event type. Possible types are:
 
-        frt::InputTypeRelease < Press event, emitted after debounce 
-        frt::InputTypeRelease < Release event, emitted after debounce 
-        frt::InputTypeShort   < Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval 
-        frt::InputTypeLong    < Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease  
-        frt::InputTypeRepeat  < Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event 
-    */ 
+        frt::InputType::Release < Press event, emitted after debounce
+        frt::InputType::Release < Release event, emitted after debounce
+        frt::InputType::Short   < Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval
+        frt::InputType::Long    < Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease
+        frt::InputType::Repeat  < Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event
+    */
 
-    inp_svc->setInputFilter(frt::InputTypeRelease);
+    inp_svc->setInputFilter(frt::InputType::Release | frt::InputType::Repeat);
     inp_svc->start(2, "inp_svc");
 
     inp_hdl_svc = new InputHandlerTask();
     inp_hdl_svc->start(2, "inp_hdl");
+
+    frt::spin();
 }
 
+/* Loop can be/is used as idle task */
 void loop()
 {
 }
