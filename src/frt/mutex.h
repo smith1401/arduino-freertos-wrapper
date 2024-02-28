@@ -129,15 +129,7 @@ namespace frt
 
         void finalizePostFromInterrupt() __attribute__((always_inline))
         {
-#if defined(ESP32)
-            if (higher_priority_task_woken)
-            {
-                detail::yieldFromIsr();
-            }
-#else
-
             detail::yieldFromIsr(higher_priority_task_woken);
-#endif
         }
 
     private:

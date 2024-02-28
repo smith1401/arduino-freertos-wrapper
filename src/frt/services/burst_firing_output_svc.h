@@ -2,7 +2,10 @@
 #define __BURST_FIRING_OUTPUT_SVC_H__
 
 #include "output_control_svc.h"
+
+#if defined(STM32) || defined(NRF52)
 #include <BindArg.h>
+#endif
 
 #define PULSE_DELAY_US 2 // Has to be greater than 1
 #define PULSE_TIME_US 1000
@@ -35,7 +38,9 @@ namespace frt
 
         volatile uint32_t _burst_count;
         volatile uint32_t _zero_cross_count;
+#if defined(STM32) || defined(NRF52)
         bindArgVoidFunc_t _intr_gate = nullptr;
+#endif
 
 #if defined(ESP32)
         rmt_obj_t *_pulse_timer;

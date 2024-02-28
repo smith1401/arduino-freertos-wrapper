@@ -4,7 +4,8 @@
 #include <Arduino.h>
 #include <assert.h>
 
-#if defined(STM32F1) || defined(STM32F2) || defined(STM32F4)
+#if defined(STM32F1) || defined(STM32F2) || defined(STM32F4) || defined(STM32U5)
+#define STM32
 #include <STM32FreeRTOS.h>
 #include <message_buffer.h>
 #include <queue.h>
@@ -17,7 +18,10 @@
 #include <freertos/timers.h>
 #include <freertos/task.h>
 #elif defined(NRF52) || defined(NRF52840_XXAA)
-#include <FreeRTOS.h>
+#ifndef NRF52
+#define NRF52
+#endif
+// #include <FreeRTOS.h>
 #include <event_groups.h>
 #include <queue.h>
 #include <semphr.h>
@@ -29,6 +33,14 @@
 #endif
 
 #define FRT_TASK_NOTIFY_INDEX 0
+
+#ifndef FRT_UNUSED
+#define FRT_UNUSED(expr)      \
+        do                    \
+        {                     \
+                (void)(expr); \
+        } while (0)
+#endif
 
 #ifndef FRT_WARN_UNUSED
 #define FRT_WARN_UNUSED __attribute__((warn_unused_result))
@@ -52,7 +64,7 @@
 #ifndef FRT_IS_ISR
 #define FRT_IS_ISR() (FRT_IS_IRQ_MODE() || FRT_IS_IRQ_MASKED())
 #endif
-#elif defined(NRF52) || defined(NRF52840_XXAA)
+#elif defined(NRF52)
 #ifndef FRT_IS_ISR
 #define FRT_IS_ISR() isInISR()
 #endif
@@ -169,22 +181,11 @@ namespace frt
 {
         namespace detail
         {
-#if defined(STM32F1) || defined(STM32F2) || defined(STM32F4)
                 inline void yieldFromIsr(BaseType_t &tasks_woken) __attribute__((always_inline));
                 void yieldFromIsr(BaseType_t &tasks_woken)
                 {
-#if defined(portYIELD_FROM_ISR)
-                        portYIELD_FROM_ISR(tasks_woken);
-#elif defined(portEND_SWITCHING_ISR)
-                        portEND_SWITCHING_ISR(tasks_woken);
-#else
-                        taskYIELD();
-#endif
-                }
-#elif defined(ESP32)
-                inline void yieldFromIsr() __attribute__((always_inline));
-                void yieldFromIsr()
-                {
+#ifdef ESP32
+                        if (!tasks_woken) return;
 #if defined(portYIELD_FROM_ISR)
                         portYIELD_FROM_ISR();
 #elif defined(portEND_SWITCHING_ISR)
@@ -192,11 +193,7 @@ namespace frt
 #else
                         taskYIELD();
 #endif
-                }
-#elif defined(NRF52) || defined(NRF52840_XXAA)
-                inline void yieldFromIsr(BaseType_t &tasks_woken) __attribute__((always_inline));
-                void yieldFromIsr(BaseType_t &tasks_woken)
-                {
+#else
 #if defined(portYIELD_FROM_ISR)
                         portYIELD_FROM_ISR(tasks_woken);
 #elif defined(portEND_SWITCHING_ISR)
@@ -204,8 +201,8 @@ namespace frt
 #else
                         taskYIELD();
 #endif
-                }
 #endif
+                }
         }
 
         inline void spin() __attribute__((always_inline));

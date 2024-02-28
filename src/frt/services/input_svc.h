@@ -3,9 +3,12 @@
 
 #include <Arduino.h>
 #include <vector>
-#include <BindArg.h>
 
-#include <frt/frt.h>
+#include "frt/frt.h"
+
+#if defined(STM32) || defined(NRF52)
+#include <BindArg.h>
+#endif
 
 namespace frt
 {
@@ -40,7 +43,7 @@ namespace frt
         uint8_t gpio;
         InputKey key;
         bool inverted;
-        char *name;
+        const char *name;
     } InputPin;
 
     /** Input Types
@@ -203,7 +206,9 @@ namespace frt
         volatile uint32_t _counter;
         frt::Publisher<InputEvent> *_pub;
         InputType _inputFilter;
+#if defined(STM32) || defined(NRF52)
         bindArgVoidFunc_t _intr_gate = nullptr;
+#endif
     };
 }
 #endif // __INPUT_SVC_H__

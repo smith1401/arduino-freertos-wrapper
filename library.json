@@ -2,17 +2,58 @@
     "name": "Arduino FreeRTOS Wrapper",
     "version": "1.0.0",
     "keywords": "rtos, timing, thread, task, mutex, semaphore, arduino, pub, sub",
-    "description": "A wrapper library for c++ on arduino",
+    "description": "A wrapper library for FreeRTOS in C++ for the Arduino framework",
+    "authors": {
+        "name": "smith1401",
+        "maintainer": true
+    },
     "repository": {
         "type": "git",
         "url": "https://github.com/smith1401/arduino-freertos-wrapper"
     },
+    "license": "MIT",
     "frameworks": "arduino",
-    "platforms": "ststm32",
+    "platforms": [
+        "ststm32",
+        "espressif32",
+        "nordicnrf52"
+    ],
     "build": {
-        "libArchive": false
+        "libLDFMode": "deep",
+        "libCompatMode": "strict"
     },
-    "dependencies": {
-        "external-repo": "https://github.com/openlab-vn-ua/BindArg.git"
-    }
+    "dependencies": [
+        {
+            "name": "BindArg",
+            "version": "https://github.com/openlab-vn-ua/BindArg.git",
+            "platforms": [
+                "nordicnrf52",
+                "ststm32"
+            ]
+        },
+        {
+            "name": "CircularBuffer",
+            "version": "https://github.com/rlogiacco/CircularBuffer.git",
+            "platforms": [
+                "ststm32",
+                "espressif32",
+                "nordicnrf52"
+            ]
+        },
+        {
+            "owner": "me-no-dev",
+            "name": "AsyncTCP",
+            "version": "*",
+            "platforms": [
+                "espressif32"
+            ]
+        },
+        {
+            "name": "STM32FreeRTOS ",
+            "version": "https://github.com/stm32duino/STM32FreeRTOS.git",
+            "platforms": [
+                "ststm32"
+            ]
+        }
+    ]
 }

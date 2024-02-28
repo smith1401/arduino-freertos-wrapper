@@ -89,14 +89,7 @@ namespace frt
 
         void finalizeSendFromInterrupt() __attribute__((always_inline))
         {
-#if defined(ESP32)
-            if (higher_priority_task_woken_from_send)
-            {
-                detail::yieldFromIsr();
-            }
-#else
             detail::yieldFromIsr(higher_priority_task_woken_from_send);
-#endif
         }
 
         size_t receive(uint8_t *data, size_t len)
@@ -138,14 +131,7 @@ namespace frt
 
         void finalizeReceiveFromInterrupt() __attribute__((always_inline))
         {
-#if defined(ESP32)
-            if (higher_priority_task_woken_from_receive)
-            {
-                detail::yieldFromIsr();
-            }
-#else
-            detail::yieldFromIsr(higher_priority_task_woken_from_receive);
-#endif
+
         }
 
     private:

@@ -47,12 +47,17 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
 {
     for (auto pin : inputPins)
     {
-        pinMode(pin.gpio, INPUT_PULLUP);
-        // attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
+        if (pin.inverted)
+            pinMode(pin.gpio, INPUT_PULLUP);
+        else
+            pinMode(pin.gpio, INPUT_PULLDOWN);
 
+#ifdef ESP32
+        attachInterrupt(digitalPinToInterrupt(pin.gpio), std::bind(&InputService::input_isr, this), CHANGE);
+#else
         _intr_gate = bindArgGateThisAllocate(&InputService::input_isr, this);
         attachInterrupt(pin.gpio, _intr_gate, CHANGE);
-
+#endif
         InputPinState pinState;
         pinState.pin = pin;
         pinState.state = GPIO_Read(pinState);
@@ -66,12 +71,6 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
     {
         state.press_timer = new InputTimer(&state);
     }
-
-#ifdef ESP32
-    // TODO: Remove after debug
-    pinMode(GPIO_NUM_0, OUTPUT);
-    digitalWrite(GPIO_NUM_0, LOW);
-#endif
 
     _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
 }
@@ -166,9 +165,9 @@ void IRAM_ATTR InputService::input_isr()
 void InputService::input_isr()
 #endif
 {
-    FRT_CRITICAL_ENTER();
+    // FRT_CRITICAL_ENTER();
     post();
-    FRT_CRITICAL_EXIT();
+    // FRT_CRITICAL_EXIT();
 
     // preparePostFromInterrupt();
     // postFromInterrupt();

@@ -100,14 +100,7 @@ namespace frt
 
         void finalizePushFromInterrupt() __attribute__((always_inline))
         {
-#if defined(ESP32)
-            if (higher_priority_task_woken_from_push)
-            {
-                detail::yieldFromIsr();
-            }
-#else
             detail::yieldFromIsr(higher_priority_task_woken_from_push);
-#endif
         }
 
         bool pop(T &item)
@@ -176,14 +169,7 @@ namespace frt
 
         void finalizePopFromInterrupt() __attribute__((always_inline))
         {
-#if defined(ESP32)
-            if (higher_priority_task_woken_from_pop)
-            {
-                detail::yieldFromIsr();
-            }
-#else
             detail::yieldFromIsr(higher_priority_task_woken_from_pop);
-#endif
         }
 
     private:

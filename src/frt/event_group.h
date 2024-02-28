@@ -104,14 +104,7 @@ namespace frt
 
         void finalizeSetBitsFromISR() __attribute__((always_inline))
         {
-#if defined(ESP32)
-            if (tasks_woken_from_set_bits)
-            {
-                detail::yieldFromIsr();
-            }
-#else
             detail::yieldFromIsr(tasks_woken_from_set_bits);
-#endif
         }
 
     private:

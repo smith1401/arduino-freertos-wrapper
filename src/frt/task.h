@@ -7,16 +7,17 @@
 
 namespace frt
 {
-    // template <typename T, unsigned int STACK_SIZE = configMINIMAL_STACK_SIZE * sizeof(StackType_t)>
-    template <typename T, unsigned int STACK_SIZE = 1024>
+    // TODO: This should work in theory. However vertain FreeRTOS implementation do not define enough memory as configMINIMAL_STACK_SIZE, 1024 is a good guess!
+    // template <typename T, unsigned int STACK_SIZE_BYTES = configMINIMAL_STACK_SIZE * sizeof(StackType_t)>
+    template <typename T, unsigned int STACK_SIZE_BYTES = 1024>
     class Task
     {
     public:
-        Task() : running(false),
-                 do_stop(false),
-                 handle(nullptr),
-                 name(""),
-                 higher_priority_task_woken(pdFALSE)
+        Task() : m_running(false),
+                 m_do_stop(false),
+                 m_handle(nullptr),
+                 m_name(""),
+                 m_higher_priority_task_woken(pdFALSE)
         {
         }
 
@@ -30,34 +31,31 @@ namespace frt
 
         bool start(unsigned char priority = 0, const char *name = "")
         {
-            this->name = name;
+            this->m_name = name;
 
             if (priority >= configMAX_PRIORITIES)
             {
                 priority = configMAX_PRIORITIES - 1;
             }
 
-            // assert(xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED);
-
 #if configSUPPORT_STATIC_ALLOCATION > 0
-            handle = xTaskCreateStatic(
+            m_handle = xTaskCreateStatic(
                 entryPoint,
                 name,
-                STACK_SIZE / sizeof(StackType_t),
+                STACK_SIZE_BYTES / sizeof(StackType_t),
                 this,
                 priority,
-                stack,
-                &state);
-            return handle;
+                m_stack,
+                &m_state);
+            return m_handle;
 #else
             return xTaskCreate(
                        entryPoint,
                        name,
-                       STACK_SIZE / sizeof(StackType_t),
-                       //    STACK_SIZE,
+                       STACK_SIZE_BYTES / sizeof(StackType_t),
                        this,
                        priority,
-                       &handle) == pdPASS;
+                       &m_handle) == pdPASS;
 #endif
         }
 
@@ -76,7 +74,7 @@ namespace frt
             bool res = false;
 
             FRT_CRITICAL_ENTER();
-            res = running;
+            res = m_running;
             FRT_CRITICAL_EXIT();
 
             return res;
@@ -84,37 +82,31 @@ namespace frt
 
         unsigned int getUsedStackSize() const
         {
-            return STACK_SIZE - getRemainingStackSize();
+            return STACK_SIZE_BYTES - getRemainingStackSize();
         }
 
         unsigned int getRemainingStackSize() const
         {
-            return uxTaskGetStackHighWaterMark(handle) * sizeof(StackType_t);
+            return uxTaskGetStackHighWaterMark(m_handle) * sizeof(StackType_t);
         }
 
         void post()
         {
-            // uint32_t start = micros();
-
             if (FRT_IS_ISR())
             {
-                higher_priority_task_woken = pdFALSE;
-                vTaskNotifyGiveFromISR(handle, &higher_priority_task_woken);
-                detail::yieldFromIsr(higher_priority_task_woken);
-                // portYIELD_FROM_ISR(higher_priority_task_woken)
+                m_higher_priority_task_woken = pdFALSE;
+                vTaskNotifyGiveFromISR(m_handle, &m_higher_priority_task_woken);
+                detail::yieldFromIsr(m_higher_priority_task_woken);
             }
             else
             {
-                xTaskNotifyGive(handle);
+                xTaskNotifyGive(m_handle);
             }
-
-            // uint32_t duration = micros() - start;
-            // uint32_t stop = micros();
         }
 
-        const TaskHandle_t *taskHandle() const
+        const TaskHandle_t *handle() const
         {
-            return &handle;
+            return &m_handle;
         }
 
     protected:
@@ -179,15 +171,15 @@ namespace frt
     private:
         bool stop(bool from_idle_task)
         {
-            if (!handle)
+            if (!m_handle)
             {
                 return false;
             }
 
             FRT_CRITICAL_ENTER();
-            do_stop = true;
+            m_do_stop = true;
 
-            while (running)
+            while (m_running)
             {
                 FRT_CRITICAL_EXIT();
                 if (!from_idle_task)
@@ -214,8 +206,8 @@ namespace frt
 
             {
                 FRT_CRITICAL_ENTER();
-                self->running = true;
-                do_stop = self->do_stop;
+                self->m_running = true;
+                do_stop = self->m_do_stop;
                 FRT_CRITICAL_EXIT();
             }
 
@@ -223,32 +215,32 @@ namespace frt
             {
                 {
                     FRT_CRITICAL_ENTER();
-                    do_stop = self->do_stop;
+                    do_stop = self->m_do_stop;
                     FRT_CRITICAL_EXIT();
                 }
             }
 
             {
                 FRT_CRITICAL_ENTER();
-                self->do_stop = false;
-                self->running = false;
+                self->m_do_stop = false;
+                self->m_running = false;
                 FRT_CRITICAL_EXIT();
             }
 
-            const TaskHandle_t handle_copy = self->handle;
-            self->handle = nullptr;
+            const TaskHandle_t handle_copy = self->m_handle;
+            self->m_handle = nullptr;
 
             vTaskDelete(handle_copy);
         }
 
-        volatile bool running;
-        volatile bool do_stop;
-        TaskHandle_t handle;
-        const char *name;
-        BaseType_t higher_priority_task_woken;
+        volatile bool m_running;
+        volatile bool m_do_stop;
+        TaskHandle_t m_handle;
+        const char *m_name;
+        BaseType_t m_higher_priority_task_woken;
 #if configSUPPORT_STATIC_ALLOCATION > 0
-        StackType_t stack[STACK_SIZE / sizeof(StackType_t)];
-        StaticTask_t state;
+        StackType_t m_stack[STACK_SIZE_BYTES / sizeof(StackType_t)];
+        StaticTask_t m_state;
 #endif
     };
 }

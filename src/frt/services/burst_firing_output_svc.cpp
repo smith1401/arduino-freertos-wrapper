@@ -15,10 +15,13 @@ BurstFiringOutputControlService::BurstFiringOutputControlService(const uint8_t o
 {
     // Init zero-crossing input
     pinMode(_zero_cross_pin, INPUT);
-    // attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), std::bind(&BurstFiringOutputControlService::zero_cross_isr, this), RISING);
 
+#ifdef ESP32
+    attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), std::bind(&BurstFiringOutputControlService::zero_cross_isr, this), RISING);
+#else
     _intr_gate = bindArgGateThisAllocate(&BurstFiringOutputControlService::zero_cross_isr, this);
     attachInterrupt(digitalPinToInterrupt(_zero_cross_pin), _intr_gate, RISING);
+#endif
 
     // Init timer
     init_pulse_timer();
@@ -126,7 +129,7 @@ void BurstFiringOutputControlService::init_pulse_timer()
 
     _pulse_timer->refresh();
 #elif defined(NRF52) || defined(NRF52840_XXAA)
-    #warning "Pulse timer is not implemented yet for NRF52"
+#warning "Pulse timer is not implemented yet for NRF52"
 #endif
 }
 
