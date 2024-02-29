@@ -5,10 +5,15 @@
 #include <vector>
 
 #include "frt/frt.h"
+#include "frt/task.h"
+#include "frt/timer.h"
+#include "frt/pubsub.h"
 
+// has to come after '#include "frt/frt.h"' because STM32 gets defined there for convencience
 #if defined(STM32) || defined(NRF52)
 #include <BindArg.h>
 #endif
+
 
 namespace frt
 {
@@ -49,16 +54,6 @@ namespace frt
     /** Input Types
      * Some of them are physical events and some logical
      */
-    // typedef enum
-    // {
-    //     InputTypePress = (1 << 0),   /**< Press event, emitted after debounce */
-    //     InputTypeRelease = (1 << 1), /**< Release event, emitted after debounce */
-    //     InputTypeShort = (1 << 2),   /**< Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval */
-    //     InputTypeLong = (1 << 3),    /**< Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease  */
-    //     InputTypeRepeat = (1 << 4),  /**< Repeat event, emitted with INPUT_LONG_PRESS_COUNTS period after InputTypeLong event */
-    //     InputTypeMAX = 0xFFFFFFFF,   /**< Special value for exceptional */
-    // } InputType;
-
     enum class InputType : uint32_t
     {
         Press = (1 << 0),   /**< Press event, emitted after debounce */
@@ -114,15 +109,15 @@ namespace frt
         volatile uint32_t counter;
     } InputPinState;
 
-    class InputTimer : public frt::Timer
+    class InputTimer : public Timer
     {
     private:
+        Publisher<InputEvent> *_pub;
         InputPinState *_inputState;
         InputType _inputFilter;
-        frt::Publisher<InputEvent> *_pub;
 
     public:
-        InputTimer(InputPinState *inputState);
+        InputTimer(InputPinState *inputState, Publisher<InputEvent> *pub);
         virtual ~InputTimer();
         void Run() override;
 
@@ -150,16 +145,6 @@ namespace frt
                 state.press_timer->setInputFilter(filter);
             }
         }
-
-        // inline const char *getKeyName(InputKey key)
-        // {
-        //     for (auto &state : _inputPinStates)
-        //     {
-        //         if (state.pin.key == key)
-        //             return state.pin.name;
-        //     }
-        //     return "Unknown";
-        // }
 
         static const char *getKeyName(InputKey key)
         {

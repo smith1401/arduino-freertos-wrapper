@@ -1,7 +1,9 @@
 #ifndef __OUTPUT_CONTROL_SVC_H__
 #define __OUTPUT_CONTROL_SVC_H__
 
-#include <frt/frt.h>
+#include "frt/frt.h"
+#include "frt/task.h"
+#include "frt/pubsub.h"
 
 #define RECORD_OUTPUT_POWER "output_power"
 #define RECORD_CALC_PID "calc_pid"
@@ -15,11 +17,11 @@ namespace frt
         uint8_t power;
     };
 
-    class OutputControlService : public frt::Task<OutputControlService, 2048>
+    class OutputControlService : public Task<OutputControlService, 2048>
     {
     protected:
-        frt::Subscriber<OutputPower, 1> *_sub_output_power;
-        frt::Publisher<frt::msgs::Message> *_pub_pid_calc_event;
+        Subscriber<OutputPower, 1> *_sub_output_power;
+        Publisher<msgs::Message> *_pub_pid_calc_event;
     };
 
     class ZeroCrossOutputControlService : public OutputControlService

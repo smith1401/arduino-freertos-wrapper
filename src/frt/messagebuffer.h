@@ -1,8 +1,9 @@
 #ifndef __FRT_MESSAGEBUFFER_H__
 #define __FRT_MESSAGEBUFFER_H__
 
-#include "frt.h"
 #include <functional>
+
+#include "frt.h"
 
 namespace frt
 {

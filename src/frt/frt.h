@@ -21,7 +21,7 @@
 #ifndef NRF52
 #define NRF52
 #endif
-// #include <FreeRTOS.h>
+#include <FreeRTOS.h>
 #include <event_groups.h>
 #include <queue.h>
 #include <semphr.h>
@@ -72,108 +72,87 @@
 
 #if defined(ESP32)
 #ifndef FRT_CRITICAL_ENTER
-#define FRT_CRITICAL_ENTER()                                                         \
-        portMUX_TYPE mtx = portMUX_INITIALIZER_UNLOCKED;                             \
-        bool __from_isr = FRT_IS_ISR();                                              \
-        bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
-        if (__from_isr)                                                              \
-        {                                                                            \
-                taskENTER_CRITICAL_ISR(&mtx);                                        \
-        }                                                                            \
-        else if (__kernel_running)                                                   \
-        {                                                                            \
-                taskENTER_CRITICAL(&mtx);                                            \
-        }                                                                            \
-        else                                                                         \
-        {                                                                            \
-                noInterrupts();                                                      \
-        }
+#define FRT_CRITICAL_ENTER()                                                                 \
+        do                                                                                   \
+        {                                                                                    \
+                portMUX_TYPE mtx = portMUX_INITIALIZER_UNLOCKED;                             \
+                bool __from_isr = FRT_IS_ISR();                                              \
+                bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
+                if (__from_isr)                                                              \
+                {                                                                            \
+                        taskENTER_CRITICAL_ISR(&mtx);                                        \
+                }                                                                            \
+                else if (__kernel_running)                                                   \
+                {                                                                            \
+                        taskENTER_CRITICAL(&mtx);                                            \
+                }                                                                            \
+                else                                                                         \
+                {                                                                            \
+                        noInterrupts();                                                      \
+                }                                                                            \
+        } while (0)
 #endif
 
 #ifndef FRT_CRITICAL_EXIT
-#define FRT_CRITICAL_EXIT()                  \
-        if (__from_isr)                      \
-        {                                    \
-                taskEXIT_CRITICAL_ISR(&mtx); \
-        }                                    \
-        else if (__kernel_running)           \
-        {                                    \
-                taskEXIT_CRITICAL(&mtx);     \
-        }                                    \
-        else                                 \
-        {                                    \
-                interrupts();                \
-        }
+#define FRT_CRITICAL_EXIT()                          \
+        do                                           \
+        {                                            \
+                if (__from_isr)                      \
+                {                                    \
+                        taskEXIT_CRITICAL_ISR(&mtx); \
+                }                                    \
+                else if (__kernel_running)           \
+                {                                    \
+                        taskEXIT_CRITICAL(&mtx);     \
+                }                                    \
+                else                                 \
+                {                                    \
+                        interrupts();                \
+                }                                    \
+        } while (0)
 #endif
-#elif defined(STM32)
+#elif defined(STM32) || defined(NRF52)
 #ifndef FRT_CRITICAL_ENTER
-#define FRT_CRITICAL_ENTER()                                                         \
-        uint32_t __isrm = 0;                                                         \
-        bool __from_isr = FRT_IS_ISR();                                              \
-        bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
-        if (__from_isr)                                                              \
-        {                                                                            \
-                __isrm = taskENTER_CRITICAL_FROM_ISR();                              \
-        }                                                                            \
-        else if (__kernel_running)                                                   \
-        {                                                                            \
-                taskENTER_CRITICAL();                                                \
-        }                                                                            \
-        else                                                                         \
-        {                                                                            \
-                __disable_irq();                                                     \
-        }
+#define FRT_CRITICAL_ENTER()                                                                 \
+        do                                                                                   \
+        {                                                                                    \
+                bool __from_isr = FRT_IS_ISR();                                              \
+                bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
+                if (__from_isr)                                                              \
+                {                                                                            \
+                        taskENTER_CRITICAL_FROM_ISR();                                       \
+                }                                                                            \
+                else if (__kernel_running)                                                   \
+                {                                                                            \
+                        taskENTER_CRITICAL();                                                \
+                }                                                                            \
+                else                                                                         \
+                {                                                                            \
+                        noInterrupts();                                                      \
+                }                                                                            \
+        } while (0)
 #endif
 
 #ifndef FRT_CRITICAL_EXIT
-#define FRT_CRITICAL_EXIT()                         \
-        if (__from_isr)                             \
-        {                                           \
-                taskEXIT_CRITICAL_FROM_ISR(__isrm); \
-        }                                           \
-        else if (__kernel_running)                  \
-        {                                           \
-                taskEXIT_CRITICAL();                \
-        }                                           \
-        else                                        \
-        {                                           \
-                __enable_irq();                     \
-        }
-#endif
-#elif defined(NRF52) || defined(NRF52840_XXAA)
-#ifndef FRT_CRITICAL_ENTER
-#define FRT_CRITICAL_ENTER()                                                         \
-        bool __from_isr = FRT_IS_ISR();                                              \
-        bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
-        if (__from_isr)                                                              \
-        {                                                                            \
-                taskENTER_CRITICAL_FROM_ISR();                                       \
-        }                                                                            \
-        else if (__kernel_running)                                                   \
-        {                                                                            \
-                taskENTER_CRITICAL();                                                \
-        }                                                                            \
-        else                                                                         \
-        {                                                                            \
-                noInterrupts();                                                      \
-        }
-#endif
-
-#ifndef FRT_CRITICAL_EXIT
-#define FRT_CRITICAL_EXIT()                         \
-        uint32_t __isrm = 0;                        \
-        if (__from_isr)                             \
-        {                                           \
-                taskEXIT_CRITICAL_FROM_ISR(__isrm); \
-        }                                           \
-        else if (__kernel_running)                  \
-        {                                           \
-                taskEXIT_CRITICAL();                \
-        }                                           \
-        else                                        \
-        {                                           \
-                interrupts();                       \
-        }
+#define FRT_CRITICAL_EXIT()                                                                  \
+        do                                                                                   \
+        {                                                                                    \
+                uint32_t __isrm = 0;                                                         \
+                bool __from_isr = FRT_IS_ISR();                                              \
+                bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
+                if (__from_isr)                                                              \
+                {                                                                            \
+                        taskEXIT_CRITICAL_FROM_ISR(__isrm);                                  \
+                }                                                                            \
+                else if (__kernel_running)                                                   \
+                {                                                                            \
+                        taskEXIT_CRITICAL();                                                 \
+                }                                                                            \
+                else                                                                         \
+                {                                                                            \
+                        interrupts();                                                        \
+                }                                                                            \
+        } while (0)
 #endif
 #endif
 
@@ -218,15 +197,15 @@ namespace frt
         }
 }
 
-#include "log.h"
-#include "mutex.h"
-#include "queue.h"
-#include "task.h"
-#include "timer.h"
-#include "msgs.h"
-#include "manager.h"
-#include "pubsub.h"
-#include "node.h"
-#include "messagebuffer.h"
+// #include "log.h"
+// #include "mutex.h"
+// #include "queue.h"
+// #include "task.h"
+// #include "timer.h"
+// #include "msgs.h"
+// #include "manager.h"
+// #include "pubsub.h"
+// #include "node.h"
+// #include "messagebuffer.h"
 
 #endif // __FRT_H__

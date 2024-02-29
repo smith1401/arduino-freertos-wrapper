@@ -31,9 +31,6 @@ frt::PIDService::PIDService(float p, float i, float d, bool *calc_pid) : _input(
     _pid->setMaxIntegralCumulation(1000);
 
     // Init subscriber sync
-    // _sub_evt_sync = new frt::EventGroup();
-    // _input_sub->addEvent(_sub_evt_sync, INPUT_EVT_SLOT);
-    // _target_sub->addEvent(_sub_evt_sync, TARGET_EVT_SLOT);
     _sub_queue_set = xQueueCreateSet(20);
     _input_sub->addToSet(_sub_queue_set);
     _target_sub->addToSet(_sub_queue_set);
@@ -43,11 +40,6 @@ frt::PIDService::PIDService(float p, float i, float d, bool *calc_pid) : _input(
 
 frt::PIDService::~PIDService()
 {
-    delete _output_pub;
-    delete _input_sub;
-    delete _target_sub;
-    delete _pid_sub;
-    delete _pid;
 }
 
 bool frt::PIDService::run()

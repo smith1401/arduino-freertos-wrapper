@@ -5,7 +5,8 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
-#include <frt/frt.h>
+
+#include "frt/frt.h"
 
 #if defined(ESP32)
 #include "driver/i2s.h"

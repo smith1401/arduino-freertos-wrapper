@@ -3,9 +3,9 @@
 
 #include <Arduino.h>
 #include <vector>
+
 #include "mutex.h"
 #include "task.h"
-#include "messagebuffer.h"
 
 #define FRT_LOG_REGISTER_STREAM(stream) frt::Log::getInstance()->registerStream(stream);
 

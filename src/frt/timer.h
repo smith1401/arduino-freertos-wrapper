@@ -1,9 +1,10 @@
 #ifndef __FRT_TIMER_H__
 #define __FRT_TIMER_H__
 
-#include "frt.h"
 #include <functional>
 #include <type_traits>
+
+#include "frt.h"
 
 namespace frt
 {

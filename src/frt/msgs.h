@@ -1,8 +1,6 @@
 #ifndef __FRT_MSGS_H__
 #define __FRT_MSGS_H__
 
-#include <Arduino.h>
-
 namespace frt
 {
     namespace msgs

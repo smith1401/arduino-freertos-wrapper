@@ -6,11 +6,11 @@
 
 using namespace frt;
 
-InputTimer::InputTimer(InputPinState *inputState) : frt::Timer(inputState->pin.name, pdMS_TO_TICKS(INPUT_PRESS_TICKS)),
-                                                    _inputState(inputState),
-                                                    _inputFilter(InputType::MAX)
+InputTimer::InputTimer(InputPinState *inputState, Publisher<InputEvent> *pub) : Timer(inputState->pin.name, pdMS_TO_TICKS(INPUT_PRESS_TICKS)),
+                                                                                _pub(pub),
+                                                                                _inputState(inputState),
+                                                                                _inputFilter(InputType::MAX)
 {
-    _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
 }
 
 InputTimer::~InputTimer()
@@ -45,6 +45,8 @@ void InputTimer::Run()
 InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter(0),
                                                                         _inputFilter(InputType::MAX)
 {
+    _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
+
     for (auto pin : inputPins)
     {
         if (pin.inverted)
@@ -69,18 +71,13 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
 
     for (auto &state : _inputPinStates)
     {
-        state.press_timer = new InputTimer(&state);
+        state.press_timer = new InputTimer(&state, _pub);
     }
-
-    _pub = frt::pubsub::advertise<InputEvent>(RECORD_INPUT_EVENTS);
 }
 
 InputService::~InputService()
 {
-    for (auto &state : _inputPinStates)
-    {
-        delete state.press_timer;
-    }
+    _inputPinStates.clear();
 }
 
 bool InputService::run()
@@ -153,7 +150,6 @@ bool InputService::run()
     else
     {
         wait();
-        // msleep(10);
     }
 
     return true;
@@ -168,11 +164,4 @@ void InputService::input_isr()
     // FRT_CRITICAL_ENTER();
     post();
     // FRT_CRITICAL_EXIT();
-
-    // preparePostFromInterrupt();
-    // postFromInterrupt();
-    // finalizePostFromInterrupt();
-
-    // static int count = 0;
-    // FRT_LOG_DEBUG("ISR #%d", ++count);
 }
