@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <frt/frt.h>
+#include <frt/log.h>
 #include <frt/services/input_svc.h>
 
 #if defined(PIN_BUTTON)
@@ -15,7 +16,7 @@ class InputHandlerTask : public frt::Task<InputHandlerTask>
 public:
     InputHandlerTask()
     {
-        input_sub = new frt::Subscriber<frt::InputEvent>(RECORD_INPUT_EVENTS);
+        input_sub = new frt::pubsub::subscribe<frt::InputEvent>(RECORD_INPUT_EVENTS);
         FRT_LOG_INFO("Input Handler started with topic [%s]", RECORD_INPUT_EVENTS);
     }
 
