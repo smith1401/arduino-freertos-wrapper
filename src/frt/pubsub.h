@@ -1,10 +1,11 @@
 #ifndef __FRT_PUBSUB_H__
 #define __FRT_PUBSUB_H__
 
+#include <Arduino.h>
 #include <vector>
 #include <functional>
 #include <algorithm>
-#include <Arduino.h>
+
 #include "msgs.h"
 #include "queue.h"
 #include "manager.h"
@@ -18,27 +19,23 @@ namespace frt
         virtual ~IPublisher() {}
     };
 
-    template <typename T, unsigned int QUEUE_SIZE = 10>
+    template <typename T, unsigned int QUEUE_SIZE>
     class Subscriber;
 
-    template <typename T, unsigned int QUEUE_SIZE>
+    template <typename T, unsigned int QUEUE_SIZE = 10>
     class Publisher : public IPublisher
     {
     private:
         const char *_topic;
         std::vector<Subscriber<T, QUEUE_SIZE> *> _subscribers;
 
-    public:
         Publisher(const char *topic) : _topic(topic)
         {
         }
 
         ~Publisher()
         {
-            // for (auto &sub : _subscribers)
-            // {
-            //     delete sub;
-            // }
+            _subscribers.clear();
         }
 
         explicit Publisher(const Publisher &other) = delete;
@@ -62,6 +59,7 @@ namespace frt
             return false;
         }
 
+    public:
         void publish(const T msg)
         {
             for (auto sub : _subscribers)
@@ -69,9 +67,11 @@ namespace frt
                 sub->send(msg);
             }
         }
+
+        friend class Manager;
     };
 
-    template <typename T, unsigned int QUEUE_SIZE>
+    template <typename T, unsigned int QUEUE_SIZE = 10>
     class Subscriber final
     {
     private:
@@ -81,21 +81,17 @@ namespace frt
         EventGroup *_evt_grp;
         EventBits_t _evt_bit;
 
-    public:
         Subscriber(const char *topic) : _topic(topic),
                                         _evt_grp(nullptr)
         {
-            auto man = Manager::getInstance();
-            auto pub = man->aquirePublisher<T, QUEUE_SIZE>(_topic);
-            pub->addSubscriber(this);
         }
 
         ~Subscriber()
         {
-            auto man = Manager::getInstance();
-            auto pub = man->aquirePublisher<T>(_topic);
-            pub->removeSubscriber(this);
         }
+
+        explicit Subscriber(const Subscriber &other) = delete;
+        Subscriber &operator=(const Subscriber &other) = delete;
 
         void addEvent(EventGroup *evt_grp, const EventBits_t evt_bit)
         {
@@ -103,6 +99,7 @@ namespace frt
             _evt_bit = evt_bit;
         }
 
+    public:
         void addToSet(QueueSetHandle_t &setHandle)
         {
             _queue.addToSet(setHandle);
@@ -155,8 +152,8 @@ namespace frt
             return _queue.pop(msg, msecs, remainder);
         }
 
-        explicit Subscriber(const Subscriber &other) = delete;
-        Subscriber &operator=(const Subscriber &other) = delete;
+        friend class Manager;
+        friend class Publisher<T, QUEUE_SIZE>;
     };
 
     namespace pubsub
@@ -164,7 +161,7 @@ namespace frt
         template <typename M, unsigned int QUEUE_SIZE = 10>
         Publisher<M, QUEUE_SIZE> *advertise(const char *topic)
         {
-            frt::Manager *man = Manager::getInstance();
+            Manager *man = Manager::getInstance();
             Publisher<M, QUEUE_SIZE> *pub = man->aquirePublisher<M, QUEUE_SIZE>(topic);
 
             return pub;
@@ -173,12 +170,8 @@ namespace frt
         template <typename M, unsigned int QUEUE_SIZE = 10>
         Subscriber<M, QUEUE_SIZE> *subscribe(const char *topic)
         {
-            Subscriber<M, QUEUE_SIZE> *sub = new Subscriber<M, QUEUE_SIZE>(topic);
-
-            frt::Manager *man = Manager::getInstance();
-            Publisher<M, QUEUE_SIZE> *pub = man->aquirePublisher<M, QUEUE_SIZE>(topic);
-
-            pub->addSubscriber(sub);
+            Manager *man = Manager::getInstance();
+            Subscriber<M, QUEUE_SIZE> *sub = man->aquireSubscriber<M, QUEUE_SIZE>(topic);
 
             return sub;
         }
