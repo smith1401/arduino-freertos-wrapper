@@ -71,44 +71,46 @@
 #endif
 
 #if defined(ESP32)
+static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
 #ifndef FRT_CRITICAL_ENTER
 #define FRT_CRITICAL_ENTER()                                                                 \
         do                                                                                   \
         {                                                                                    \
-                portMUX_TYPE mtx = portMUX_INITIALIZER_UNLOCKED;                             \
                 bool __from_isr = FRT_IS_ISR();                                              \
                 bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
                 if (__from_isr)                                                              \
                 {                                                                            \
-                        taskENTER_CRITICAL_ISR(&mtx);                                        \
+                        taskENTER_CRITICAL_ISR(&spinlock);                                   \
                 }                                                                            \
                 else if (__kernel_running)                                                   \
                 {                                                                            \
-                        taskENTER_CRITICAL(&mtx);                                            \
+                        taskENTER_CRITICAL(&spinlock);                                       \
                 }                                                                            \
                 else                                                                         \
                 {                                                                            \
-                        noInterrupts();                                                      \
+                        taskDISABLE_INTERRUPTS();                                            \
                 }                                                                            \
         } while (0)
 #endif
 
 #ifndef FRT_CRITICAL_EXIT
-#define FRT_CRITICAL_EXIT()                          \
-        do                                           \
-        {                                            \
-                if (__from_isr)                      \
-                {                                    \
-                        taskEXIT_CRITICAL_ISR(&mtx); \
-                }                                    \
-                else if (__kernel_running)           \
-                {                                    \
-                        taskEXIT_CRITICAL(&mtx);     \
-                }                                    \
-                else                                 \
-                {                                    \
-                        interrupts();                \
-                }                                    \
+#define FRT_CRITICAL_EXIT()                                                                  \
+        do                                                                                   \
+        {                                                                                    \
+                bool __from_isr = FRT_IS_ISR();                                              \
+                bool __kernel_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING); \
+                if (__from_isr)                                                              \
+                {                                                                            \
+                        taskEXIT_CRITICAL_ISR(&spinlock);                                    \
+                }                                                                            \
+                else if (__kernel_running)                                                   \
+                {                                                                            \
+                        taskEXIT_CRITICAL(&spinlock);                                        \
+                }                                                                            \
+                else                                                                         \
+                {                                                                            \
+                        taskENABLE_INTERRUPTS();                                             \
+                }                                                                            \
         } while (0)
 #endif
 #elif defined(STM32) || defined(NRF52)

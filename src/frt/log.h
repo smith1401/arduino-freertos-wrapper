@@ -54,7 +54,9 @@ namespace frt
     {
     private:
         static Log *instance;
-        std::vector<Stream *> streams;
+        static Mutex mutex;
+        static std::vector<Stream *> streams;
+        
         bool _quiet;
         LogLevel _level;
         char buf[MAX_LOG_SIZE];
@@ -71,7 +73,7 @@ namespace frt
         void registerStream(Stream *s);
         void setLevel(LogLevel level);
         void log(LogLevel level, const char *file, int line, const char *fmt, ...);
-        void log_buffer(LogLevel level, const char* name, uint8_t *buffer, size_t len);
+        void log_buffer(LogLevel level, const char *name, uint8_t *buffer, size_t len);
         void log_blank();
     };
 }

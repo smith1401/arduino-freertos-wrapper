@@ -15,7 +15,7 @@
 
 namespace frt
 {
-    class PIDService : public frt::Task<PIDService, 2048>
+    class PIDService : public frt::Task<PIDService, 4096>
     {
     public:
         PIDService(float p, float i, float d, bool *calc_pid);

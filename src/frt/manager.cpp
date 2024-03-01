@@ -8,6 +8,8 @@ std::map<size_t, IPublisher *> Manager::publishers;
 
 Manager *Manager::getInstance()
 {
+    LockGuard lock(mutex);
+    
     if (instance == nullptr)
     {
         instance = new Manager();

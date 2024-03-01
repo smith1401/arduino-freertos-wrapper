@@ -1,7 +1,9 @@
 #include "temperature_svc.h"
+
+using namespace frt;
 // TODO: add implementation for STM32 and NRF52
 #ifdef ESP32
-frt::TemperatureService::TemperatureService(int pin, uint8_t resolution_bits, float nominal_resistance, float reference_resistance, float beta, float nominal_temperature, float corr_factor) : _pin(pin),
+TemperatureService::TemperatureService(int pin, uint8_t resolution_bits, float nominal_resistance, float reference_resistance, float beta, float nominal_temperature, float corr_factor) : _pin(pin),
                                                                                                                                                                                                 _resolution_bits(resolution_bits),
                                                                                                                                                                                                 _nominal_resistance(nominal_resistance),
                                                                                                                                                                                                 _reference_resistance(reference_resistance),
@@ -47,10 +49,10 @@ frt::TemperatureService::TemperatureService(int pin, uint8_t resolution_bits, fl
     // _evt_pin = 2;
     // pinMode(_evt_pin, OUTPUT);
 
-    _pub = frt::pubsub::advertise<frt::msgs::Temperature>(RECORD_TEMPERATURE);
+    _pub = pubsub::advertise<msgs::Temperature>(RECORD_TEMPERATURE);
 }
 
-bool frt::TemperatureService::run()
+bool TemperatureService::run()
 {
 #ifdef DMA_MODE
     i2s_event_t evt;
@@ -101,7 +103,7 @@ bool frt::TemperatureService::run()
             // Convert 16 bit number to 12 bit number by subtracting 4095
             median -= 0x6000;
 
-            frt::msgs::Temperature t;
+            msgs::Temperature t;
             t.timestamp = xTaskGetTickCount();
             t.temperature = convert_to_deg_c(median);
 
@@ -126,7 +128,7 @@ bool frt::TemperatureService::run()
     uint32_t mean = std::accumulate(_samples.begin(), _samples.end(), 0.0F) / count;
     _samples.clear();
 
-    frt::msgs::Temperature t;
+    msgs::Temperature t;
     t.timestamp = xTaskGetTickCount();
     t.temperature = convert_to_deg_c(mean);
     _pub->publish(t);

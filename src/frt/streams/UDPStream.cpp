@@ -71,8 +71,6 @@ String UDPStream::readString()
     String str;
     char c;
 
-    FRT_LOG_INFO("READSTRING");
-
     while (m_receive_buffer.available() && (c = (char)m_receive_buffer.shift()) != '\0')
     {
         str += c;
@@ -121,7 +119,7 @@ void UDPStream::begin(const char *ssid, const char *password, const char *server
         error_handler();
     }
 
-    FRT_LOG_INFO("Connected to WiFi with address %s\r\n", WiFi.localIP().toString().c_str());
+    FRT_LOG_INFO("Connected to WiFi with address %s", WiFi.localIP().toString().c_str());
 
     m_server_ip.fromString(serverAddress);
 
@@ -150,7 +148,7 @@ void UDPStream::begin(const char *ssid, const char *password, const char *server
         error_handler();
     }
 
-    FRT_LOG_INFO("Connected to UDP server with address %s on port %d\n", m_server_ip.toString().c_str(), serverPort);
+    FRT_LOG_INFO("Connected to UDP server with address %s on port %d", m_server_ip.toString().c_str(), serverPort);
 }
 
 UDPStream::operator bool()
