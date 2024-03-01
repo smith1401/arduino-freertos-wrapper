@@ -118,7 +118,7 @@ namespace frt
             // Else just push the element
             else
             {
-                _queue.push(msg, 10);
+                _queue.push(msg);
             }
         }
 

@@ -20,9 +20,6 @@ namespace frt
 
         ~Queue()
         {
-// #if configSUPPORT_STATIC_ALLOCATION > 0
-//             delete[] buffer;
-// #endif
             vQueueDelete(_handle);
         }
 
@@ -112,7 +109,7 @@ namespace frt
             }
             else
             {
-                if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks) != pdTRUE))
+                if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) != pdTRUE)
                 {
                     return false;
                 }
@@ -188,7 +185,7 @@ namespace frt
             }
             else
             {
-                if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks) != pdTRUE))
+                if (xQueueReceive(_handle, &item, max(1U, (unsigned int)ticks)) != pdTRUE)
                 {
                     return false;
                 }
@@ -264,7 +261,7 @@ namespace frt
             }
             else
             {
-                if (xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks) != pdTRUE))
+                if (xQueuePeek(_handle, &item, max(1U, (unsigned int)ticks)) != pdTRUE)
                 {
                     return false;
                 }
