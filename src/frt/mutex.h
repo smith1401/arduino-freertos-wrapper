@@ -85,14 +85,22 @@ namespace frt
         explicit Semaphore(const Semaphore &other) = delete;
         Semaphore &operator=(const Semaphore &other) = delete;
 
-        void wait()
+        bool wait()
         {
-            xSemaphoreTake(handle, portMAX_DELAY);
+            // Do not allow taking semaphores inside and ISR context
+            if (FRT_IS_ISR())
+                return false;
+
+            return xSemaphoreTake(handle, portMAX_DELAY);
         }
 
         bool wait(unsigned int msecs)
         {
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
+
+            // Do not allow taking semaphores inside and ISR context
+            if (FRT_IS_ISR())
+                return false;
 
             return xSemaphoreTake(handle, max(1U, (unsigned int)ticks)) == pdTRUE;
         }
@@ -103,6 +111,10 @@ namespace frt
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
             // remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
+            // Do not allow taking semaphores inside and ISR context
+            if (FRT_IS_ISR())
+                return false;
+
             if (xSemaphoreTake(handle, max(1U, (unsigned int)ticks)) == pdTRUE)
             {
                 remainder = 0;
@@ -112,29 +124,25 @@ namespace frt
             return false;
         }
 
-        void post()
+        bool post()
         {
-            xSemaphoreGive(handle);
-        }
+            bool success = false;
 
-        void preparePostFromInterrupt()
-        {
-            higher_priority_task_woken = 0;
-        }
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                success = xSemaphoreGiveFromISR(handle, &taskWoken);
 
-        void postFromInterrupt()
-        {
-            xSemaphoreGiveFromISR(handle, &higher_priority_task_woken);
-        }
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+                success = xSemaphoreGive(handle); 
 
-        void finalizePostFromInterrupt() __attribute__((always_inline))
-        {
-            detail::yieldFromIsr(higher_priority_task_woken);
+            return success;              
         }
 
     private:
         SemaphoreHandle_t handle;
-        BaseType_t higher_priority_task_woken;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         StaticSemaphore_t buffer;
 #endif

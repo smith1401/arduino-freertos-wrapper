@@ -39,9 +39,9 @@ namespace frt
                 return uxQueueMessagesWaiting(_handle);
         }
 
-        void addToSet(QueueSetHandle_t &sethandle)
+        bool addToSet(QueueSetHandle_t &sethandle)
         {
-            xQueueAddToSet(_handle, sethandle);
+            return xQueueAddToSet(_handle, sethandle);
         }
 
         bool isMember(QueueSetMemberHandle_t &memberHandle)

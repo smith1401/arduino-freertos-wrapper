@@ -91,9 +91,9 @@ namespace frt
         Subscriber &operator=(const Subscriber &other) = delete;
 
     public:
-        void addToSet(QueueSetHandle_t &setHandle)
+        bool addToSet(QueueSetHandle_t &setHandle)
         {
-            _queue.addToSet(setHandle);
+            return _queue.addToSet(setHandle);
         }
 
         bool canReceive(QueueSetMemberHandle_t &memberHandle)

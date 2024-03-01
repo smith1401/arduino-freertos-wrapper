@@ -94,9 +94,9 @@ namespace frt
         {
             if (FRT_IS_ISR())
             {
-                m_higher_priority_task_woken = pdFALSE;
-                vTaskNotifyGiveFromISR(m_handle, &m_higher_priority_task_woken);
-                detail::yieldFromIsr(m_higher_priority_task_woken);
+                BaseType_t taskWoken = pdFALSE;
+                vTaskNotifyGiveFromISR(m_handle, &taskWoken);
+                detail::yieldFromIsr(taskWoken);
             }
             else
             {
@@ -141,7 +141,6 @@ namespace frt
 
         bool wait()
         {
-            // return ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             return ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
         }
 
@@ -149,7 +148,7 @@ namespace frt
         {
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
-            return ulTaskNotifyTake(pdTRUE, max(1U, (unsigned int)ticks));
+            return ulTaskNotifyTake(pdFALSE, max(1U, (unsigned int)ticks));
         }
 
         bool wait(unsigned int msecs, unsigned int &remainder)
@@ -159,7 +158,7 @@ namespace frt
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
             uint32_t notifiedValue;
-            if (ulTaskNotifyTake(pdTRUE, max(1U, (unsigned int)ticks)))
+            if (ulTaskNotifyTake(pdFALSE, max(1U, (unsigned int)ticks)))
             {
                 remainder = 0;
                 return true;
@@ -237,7 +236,6 @@ namespace frt
         volatile bool m_do_stop;
         TaskHandle_t m_handle;
         const char *m_name;
-        BaseType_t m_higher_priority_task_woken;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         StackType_t m_stack[STACK_SIZE_BYTES / sizeof(StackType_t)];
         StaticTask_t m_state;
