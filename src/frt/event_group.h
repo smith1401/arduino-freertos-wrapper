@@ -2,7 +2,7 @@
 #define __FRT_EVENT_GROUP_H__
 
 #include "frt.h"
-
+#include "log.h"
 namespace frt
 {
 
@@ -29,14 +29,16 @@ namespace frt
         {
             if (FRT_IS_ISR())
             {
-                BaseType_t taskWoken = pdFALSE;
-                EventBits_t bitsSet = xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken);
+                FRT_LOG_ERROR("xEventGroupSetBitsFromISR not supported");
+                // BaseType_t taskWoken = pdFALSE;
+                // EventBits_t bitsSet = xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken);
 
-                if (bitsSet != pdFAIL)
-                {
-                    detail::yieldFromIsr(taskWoken);
-                }
-                return bitsSet;
+                // if (bitsSet != pdFAIL)
+                // {
+                //     detail::yieldFromIsr(taskWoken);
+                // }
+                // return bitsSet;
+                return false;
             }
             else
                 return xEventGroupSetBits(handle, bitsToSet);

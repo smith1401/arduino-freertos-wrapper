@@ -35,8 +35,7 @@ public:
         m_udp.printf(f, args...);
     }
 
-    /* compatibility with Serial */
-    void begin(const char *ssid, const char *password, const char *serverAddress, const uint16_t serverPort = 9999);
+    bool begin(const char *ssid, const char *password, const char *serverAddress, const uint16_t serverPort = 9999);
     operator bool();
 
 private:

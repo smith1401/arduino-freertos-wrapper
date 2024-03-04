@@ -110,7 +110,7 @@ void UDPStream::flush()
     m_receive_buffer.clear();
 }
 
-void UDPStream::begin(const char *ssid, const char *password, const char *serverAddress, const uint16_t serverPort)
+bool UDPStream::begin(const char *ssid, const char *password, const char *serverAddress, const uint16_t serverPort)
 {
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
@@ -132,23 +132,19 @@ void UDPStream::begin(const char *ssid, const char *password, const char *server
                            for (size_t i = 0; i < packet.length(); i++)
                            {
                                char c = (char)packet.read();
-                            //    Serial.print(c);
                                stream->m_receive_buffer.push(c);
                            }
-
-                           //    stream->m_packet_queue.push(&packet, portMAX_DELAY);
-
                        },
                        this);
 
         // digitalWrite(m_conn_led_pin, HIGH);
-    }
-    else
-    {
-        error_handler();
+        FRT_LOG_INFO("Connected to UDP server with address %s on port %d", m_server_ip.toString().c_str(), serverPort);
+        return true;
     }
 
-    FRT_LOG_INFO("Connected to UDP server with address %s on port %d", m_server_ip.toString().c_str(), serverPort);
+    FRT_LOG_ERROR("Could not connect to UDP server");
+    // error_handler();
+    return false;
 }
 
 UDPStream::operator bool()
