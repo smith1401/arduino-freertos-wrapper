@@ -93,7 +93,7 @@ namespace frt
 
     public:
         const char *topic() const { return _topic; }
-        void addToSet(QueueSetHandle_t &setHandle)
+        bool addToSet(QueueSetHandle_t &setHandle)
         {
             return _queue.addToSet(setHandle);
         }

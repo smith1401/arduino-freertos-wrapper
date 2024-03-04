@@ -29,6 +29,7 @@ namespace frt
         {
             if (FRT_IS_ISR())
             {
+                #if ( ( configUSE_TRACE_FACILITY == 1 ) && ( INCLUDE_xTimerPendFunctionCall == 1 ) && ( configUSE_TIMERS == 1 ) )
                 BaseType_t taskWoken = pdFALSE;
                 EventBits_t bitsSet = xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken);
 
@@ -36,6 +37,7 @@ namespace frt
                 {
                     detail::yieldFromIsr(taskWoken);
                 }
+                #endif
                 return bitsSet;
             }
             else
