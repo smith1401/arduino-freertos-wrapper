@@ -132,6 +132,7 @@ namespace frt
         }
 
     protected:
+        virtual void init() {}
         virtual bool run() = 0;
 
         void yield()
@@ -231,6 +232,8 @@ namespace frt
                 do_stop = self->m_do_stop;
                 FRT_CRITICAL_EXIT();
             }
+
+            static_cast<T *>(self)->init();
 
             while (!do_stop && static_cast<T *>(self)->run())
             {

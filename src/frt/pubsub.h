@@ -60,6 +60,7 @@ namespace frt
         }
 
     public:
+        const char *topic() const { return _topic; }
         void publish(const T msg)
         {
             for (auto sub : _subscribers)
@@ -91,7 +92,8 @@ namespace frt
         Subscriber &operator=(const Subscriber &other) = delete;
 
     public:
-        bool addToSet(QueueSetHandle_t &setHandle)
+        const char *topic() const { return _topic; }
+        void addToSet(QueueSetHandle_t &setHandle)
         {
             return _queue.addToSet(setHandle);
         }
