@@ -109,7 +109,9 @@ namespace frt
             }
             else
             {
-                if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) != pdTRUE)
+                // changed to also allow 0 wat time for timer callbacks
+                // if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) != pdTRUE)
+                if (xQueueSend(_handle, &item, ticks) != pdTRUE)
                 {
                     return false;
                 }
@@ -137,7 +139,8 @@ namespace frt
             }
             else
             {
-                if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+                // if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) == pdTRUE)
+                if (xQueueSend(_handle, &item, ticks) != pdTRUE)
                 {
                     remainder = 0;
                     return true;

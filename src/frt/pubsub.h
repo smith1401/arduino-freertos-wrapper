@@ -61,11 +61,11 @@ namespace frt
 
     public:
         const char *topic() const { return _topic; }
-        void publish(const T msg)
+        void publish(const T msg, unsigned int msecs = portMAX_DELAY / configTICK_RATE_HZ)
         {
             for (auto sub : _subscribers)
             {
-                sub->send(msg);
+                sub->send(msg, msecs);
             }
         }
 
@@ -103,7 +103,7 @@ namespace frt
             return _queue.isMember(memberHandle);
         }
 
-        void send(const T &msg)
+        void send(const T &msg, unsigned int msecs = portMAX_DELAY / configTICK_RATE_HZ)
         {
             // If the size is just one, then override
             if (QUEUE_SIZE == 1)
@@ -113,14 +113,14 @@ namespace frt
             // If there are spaces available, then push to the queue
             else if (_queue.availableForWrite())
             {
-                _queue.push(msg);
+                _queue.push(msg, msecs);
             }
             // Else pop the last element and push
             else
             {
                 T temp;
-                _queue.pop(temp);
-                _queue.push(msg);
+                _queue.pop(temp, msecs);
+                _queue.push(msg, msecs);
             }
         }
 

@@ -6,6 +6,8 @@
 
 #include "frt.h"
 
+#define portZERO_DELAY pdMS_TO_TICKS(0)
+
 namespace frt
 {
     class Timer

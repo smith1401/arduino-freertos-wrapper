@@ -30,7 +30,7 @@ void InputTimer::run()
         event.type = InputType::Long;
 
         if (_inputFilter & event.type)
-            _pub->publish(event);
+            _pub->publish(event, portZERO_DELAY);
     }
     else if (_inputState->press_counter > INPUT_LONG_PRESS_COUNTS)
     {
@@ -38,7 +38,7 @@ void InputTimer::run()
         event.type = InputType::Repeat;
 
         if (_inputFilter & event.type)
-            _pub->publish(event);
+            _pub->publish(event, portZERO_DELAY);
     }
 }
 
