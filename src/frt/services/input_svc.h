@@ -127,8 +127,7 @@ namespace frt
         }
     };
 
-    class InputService : public frt::Task<InputService, 1024>
-    // class InputService : public frt::Task<InputService>
+    class InputService : public frt::Task<InputService, 2048>
     {
     public:
         InputService(std::initializer_list<InputPin> pins);

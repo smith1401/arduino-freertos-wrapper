@@ -2,6 +2,7 @@
 #define __OUTPUT_CONTROL_SVC_H__
 
 #include "frt/frt.h"
+#include "frt/log.h"
 #include "frt/task.h"
 #include "frt/pubsub.h"
 

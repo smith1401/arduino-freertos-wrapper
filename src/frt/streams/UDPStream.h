@@ -9,6 +9,7 @@
 #include <CircularBuffer.hpp>
 
 #include "frt/frt.h"
+#include "frt/log.h"
 
 class UDPStream : public Stream
 {

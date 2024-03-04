@@ -79,11 +79,8 @@ namespace frt
         typedef std::function<void(const T *)> SubscriberCallback;
         Queue<T, QUEUE_SIZE> _queue;
         const char *_topic;
-        EventGroup *_evt_grp;
-        EventBits_t _evt_bit;
 
-        Subscriber(const char *topic) : _topic(topic),
-                                        _evt_grp(nullptr)
+        Subscriber(const char *topic) : _topic(topic)
         {
         }
 
@@ -94,17 +91,11 @@ namespace frt
         explicit Subscriber(const Subscriber &other) = delete;
         Subscriber &operator=(const Subscriber &other) = delete;
 
-        void addEvent(EventGroup *evt_grp, const EventBits_t evt_bit)
-        {
-            _evt_grp = evt_grp;
-            _evt_bit = evt_bit;
-        }
-
     public:
         const char *topic() const { return _topic; }
         void addToSet(QueueSetHandle_t &setHandle)
         {
-            _queue.addToSet(setHandle);
+            return _queue.addToSet(setHandle);
         }
 
         bool canReceive(QueueSetMemberHandle_t &memberHandle)
@@ -130,12 +121,6 @@ namespace frt
             else
             {
                 _queue.push(msg);
-            }
-
-            // If there is a synchronization queue available, set the corresponding bit
-            if (_evt_grp != nullptr)
-            {
-                _evt_grp->setBits(_evt_bit);
             }
         }
 

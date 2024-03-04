@@ -47,28 +47,59 @@ namespace frt
 
         bool send(const uint8_t *data, size_t len)
         {
+            size_t xBytesSent;
 
-            size_t xBytesSent = xMessageBufferSend(handle, (void *)data, len, portMAX_DELAY);
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
+
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+                xBytesSent = xMessageBufferSend(handle, (void *)data, len, portMAX_DELAY);
+
             return (xBytesSent == len);
         }
 
         bool send(const uint8_t *data, size_t len, unsigned int msecs)
         {
-
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
-            size_t xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
+            size_t xBytesSent;
+
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
+
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+                xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
+
             return (xBytesSent == len);
         }
 
         bool send(const uint8_t *data, size_t len, unsigned int msecs, unsigned int &remainder)
         {
-
             msecs += remainder;
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-            if (xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks)) == len)
+            size_t xBytesSent;
+
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
+
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+                xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
+
+            if (xBytesSent == len)
             {
                 remainder = 0;
                 return true;
@@ -77,32 +108,39 @@ namespace frt
             return false;
         }
 
-        void prepareSendFromInterrupt()
-        {
-            higher_priority_task_woken_from_send = 0;
-        }
-
-        bool sendFromInterrupt(const uint8_t *data, size_t len)
-        {
-            size_t xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &higher_priority_task_woken_from_send);
-            return xBytesSent == len;
-        }
-
-        void finalizeSendFromInterrupt() __attribute__((always_inline))
-        {
-            detail::yieldFromIsr(higher_priority_task_woken_from_send);
-        }
-
         size_t receive(uint8_t *data, size_t len)
         {
-            return xMessageBufferReceive(handle, (void *)data, len, portMAX_DELAY);
+            size_t xBytesReceived;
+
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
+
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+                xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, portMAX_DELAY);
+
+            return xBytesReceived;
         }
 
         size_t receive(uint8_t *data, size_t len, unsigned int msecs)
         {
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            size_t xBytesReceived;
 
-            return xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
+
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+                xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));
+
+            return xBytesReceived;
         }
 
         size_t receive(uint8_t *data, size_t len, unsigned int msecs, unsigned int &remainder)
@@ -110,41 +148,31 @@ namespace frt
             msecs += remainder;
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            size_t xBytesReceived;
 
-            if (xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks)) > 0)
+            if (FRT_IS_ISR())
             {
-                remainder = 0;
-                return true;
+                BaseType_t taskWoken = pdFALSE;
+                xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
+
+                detail::yieldFromIsr(taskWoken);
             }
+            else
+                xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));
 
-            return false;
-        }
+            if (xBytesReceived > 0)
+                remainder = 0;
 
-        void prepareReceiveFromInterrupt()
-        {
-            higher_priority_task_woken_from_receive = 0;
-        }
-
-        size_t receiveFromInterrupt(uint8_t *data, size_t len)
-        {
-            return xMessageBufferReceiveFromISR(handle, (void *)data, len, &higher_priority_task_woken_from_receive);
-        }
-
-        void finalizeReceiveFromInterrupt() __attribute__((always_inline))
-        {
-
+            return xBytesReceived;
         }
 
     private:
         MessageBufferHandle_t handle;
-        BaseType_t higher_priority_task_woken_from_send;
-        BaseType_t higher_priority_task_woken_from_receive;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         uint8_t buffer[BUFFER_SIZE];
         StaticMessageBuffer_t bufferStruct;
 #endif
     };
-
 }
 
 #endif // __FRT_MESSAGEBUFFER_H__

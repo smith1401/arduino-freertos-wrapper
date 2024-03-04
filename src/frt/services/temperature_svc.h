@@ -7,6 +7,9 @@
 #include <numeric>
 
 #include "frt/frt.h"
+#include "frt/task.h"
+#include "frt/log.h"
+#include "frt/pubsub.h"
 
 #if defined(ESP32)
 #include "driver/i2s.h"

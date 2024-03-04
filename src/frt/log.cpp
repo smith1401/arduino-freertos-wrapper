@@ -2,7 +2,9 @@
 
 using namespace frt;
 
-Log *Log::instance = nullptr;
+Log *Log::instance{nullptr};
+Mutex Log::mutex;
+std::vector<Stream *> Log::streams;
 
 static const char *level_strings[] = {
     "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
@@ -14,6 +16,8 @@ static const char *level_colors[] = {
 
 Log *Log::getInstance()
 {
+    LockGuard lock(mutex);
+
     if (instance == nullptr)
     {
         instance = new Log();
@@ -31,41 +35,9 @@ void frt::Log::setLevel(LogLevel level)
     _level = level;
 }
 
-// bool frt::Log::run()
-// {
-//     char b[buffer.size()];
-//     taskENTER_CRITICAL();
-//     size_t received = buffer.receive((uint8_t *)b, sizeof(b));
-//     taskEXIT_CRITICAL();
-
-//     if (received > 0)
-//     {
-//         for (auto &p : printers)
-//         {
-//             p->write(b, received);
-//             p->flush();
-//         }
-//     }
-
-//     return true;
-// }
 
 void Log::log(LogLevel level, const char *file, int line, const char *fmt, ...)
 {
-    // mutex.lock();
-
-    // TaskStatus_t xTaskDetails;
-    // xTaskDetails.pcTaskName = "";
-
-    // if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
-    //     vTaskGetInfo(NULL, &xTaskDetails, pdFALSE, eInvalid);
-
-    // bool task_valid = strcmp(xTaskDetails.pcTaskName, "") != 0;
-
-    // const char* task_name = task_valid ? xTaskDetails.pcTaskName : "NONE";
-    // int task_prio = task_valid ? xTaskDetails.uxCurrentPriority : -1;
-    // int task_num= task_valid ? xTaskDetails.xTaskNumber : -1;
-
     LogEvent ev;
     ev.fmt = fmt;
     ev.file = file;
@@ -109,8 +81,6 @@ void Log::log(LogLevel level, const char *file, int line, const char *fmt, ...)
 
         va_end(ev.ap);
     }
-
-    // mutex.unlock();
 }
 
 void frt::Log::log_buffer(LogLevel level, const char *name, uint8_t *buffer, size_t len)

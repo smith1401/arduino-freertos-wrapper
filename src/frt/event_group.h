@@ -27,32 +27,35 @@ namespace frt
 
         EventBits_t setBits(const EventBits_t bitsToSet)
         {
-            return xEventGroupSetBits(handle, bitsToSet);
-        }
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                EventBits_t bitsSet = xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken);
 
-        EventBits_t setBitsFromISR(const EventBits_t bitsToSet)
-        {
-            return xEventGroupSetBitsFromISR(handle, bitsToSet, &tasks_woken_from_set_bits);
+                if (bitsSet != pdFAIL)
+                {
+                    detail::yieldFromIsr(taskWoken);
+                }
+                return bitsSet;
+            }
+            else
+                return xEventGroupSetBits(handle, bitsToSet);
         }
 
         EventBits_t getBits()
         {
-            return xEventGroupGetBits(handle);
-        }
-
-        EventBits_t getBitsFromISR()
-        {
-            return xEventGroupGetBitsFromISR(handle);
+            if (FRT_IS_ISR())
+                return xEventGroupGetBitsFromISR(handle);
+            else
+                return xEventGroupGetBits(handle);
         }
 
         EventBits_t clearBits(const EventBits_t bitsToClear)
         {
-            return xEventGroupClearBits(handle, bitsToClear);
-        }
-
-        EventBits_t clearBitsFromISR(const EventBits_t bitsToClear)
-        {
-            return xEventGroupClearBitsFromISR(handle, bitsToClear);
+            if (FRT_IS_ISR())
+                return xEventGroupClearBitsFromISR(handle, bitsToClear);
+            else
+                return xEventGroupClearBits(handle, bitsToClear);
         }
 
         EventBits_t waitBits(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits)
@@ -97,19 +100,8 @@ namespace frt
             return xEventGroupSync(handle, bitsToSet, bitsToWaitFor, max(1U, (unsigned int)ticks));
         }
 
-        void prepareSetBitsFromISR()
-        {
-            tasks_woken_from_set_bits = 0;
-        }
-
-        void finalizeSetBitsFromISR() __attribute__((always_inline))
-        {
-            detail::yieldFromIsr(tasks_woken_from_set_bits);
-        }
-
     private:
         EventGroupHandle_t handle;
-        BaseType_t tasks_woken_from_set_bits;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         StaticEventGroup_t buffer;
 #endif

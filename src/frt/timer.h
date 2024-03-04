@@ -85,22 +85,21 @@ namespace frt
          *  @returns true if this command will be sent to the timer code,
          *           false if it will not (i.e. timeout).
          */
-        bool Start(TickType_t CmdTimeout = portMAX_DELAY)
+        bool start(TickType_t CmdTimeout = portMAX_DELAY)
         {
-            return xTimerStart(handle, CmdTimeout) == pdFALSE ? false : true;
-        }
+            bool success = false;
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                success = xTimerStartFromISR(handle, &taskWoken);
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                success = xTimerStart(handle, CmdTimeout);
+            }
 
-        /**
-         *  Start a timer from ISR context. This changes the state to active.
-         *
-         *  @param pxHigherPriorityTaskWoken Did this operation result in a
-         *         rescheduling event.
-         *  @returns true if this command will be sent to the timer code,
-         *           false if it will not (i.e. timeout).
-         */
-        bool StartFromISR(BaseType_t *pxHigherPriorityTaskWoken)
-        {
-            return xTimerStartFromISR(handle, pxHigherPriorityTaskWoken) == pdFALSE ? false : true;
+            return success;
         }
 
         /**
@@ -111,26 +110,21 @@ namespace frt
          *  @returns true if this command will be sent to the timer code,
          *           false if it will not (i.e. timeout).
          */
-        bool Stop(TickType_t CmdTimeout = portMAX_DELAY)
+        bool stop(TickType_t CmdTimeout = portMAX_DELAY)
         {
-            return xTimerStop(handle, CmdTimeout) == pdFALSE ? false : true;
-            // assert(xTimerStop(handle, CmdTimeout) == pdTRUE);
-            // while (xTimerIsTimerActive(handle) == pdTRUE)
-            //     vTaskDelay(1);
-            // return true;
-        }
+            bool success = false;
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                success = xTimerStopFromISR(handle, &taskWoken);
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                success = xTimerStop(handle, CmdTimeout);
+            }
 
-        /**
-         *  Stop a timer from ISR context. This changes the state to inactive.
-         *
-         *  @param pxHigherPriorityTaskWoken Did this operation result in a
-         *         rescheduling event.
-         *  @returns true if this command will be sent to the timer code,
-         *           false if it will not (i.e. timeout).
-         */
-        bool StopFromISR(BaseType_t *pxHigherPriorityTaskWoken)
-        {
-            return xTimerStopFromISR(handle, pxHigherPriorityTaskWoken) == pdFALSE ? false : true;
+            return success;
         }
 
         /**
@@ -141,22 +135,21 @@ namespace frt
          *  @returns true if this command will be sent to the timer code,
          *           false if it will not (i.e. timeout).
          */
-        bool Reset(TickType_t CmdTimeout = portMAX_DELAY)
+        bool reset(TickType_t CmdTimeout = portMAX_DELAY)
         {
-            return xTimerReset(handle, CmdTimeout) == pdFALSE ? false : true;
-        }
+            bool success = false;
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                success = xTimerResetFromISR(handle, &taskWoken);
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                success = xTimerReset(handle, CmdTimeout);
+            }
 
-        /**
-         *  Reset a timer from ISR context. This changes the state to active.
-         *
-         *  @param pxHigherPriorityTaskWoken Did this operation result in a
-         *         rescheduling event.
-         *  @returns true if this command will be sent to the timer code,
-         *           false if it will not (i.e. timeout).
-         */
-        bool ResetFromISR(BaseType_t *pxHigherPriorityTaskWoken)
-        {
-            return xTimerResetFromISR(handle, pxHigherPriorityTaskWoken) == pdFALSE ? false : true;
+            return success;
         }
 
         /**
@@ -168,25 +161,22 @@ namespace frt
          *  @returns true if this command will be sent to the timer code,
          *           false if it will not (i.e. timeout).
          */
-        bool SetPeriod(TickType_t NewPeriod,
+        bool setPeriod(TickType_t NewPeriod,
                        TickType_t CmdTimeout = portMAX_DELAY)
         {
-            return xTimerChangePeriod(handle, NewPeriod, CmdTimeout) == pdFALSE ? false : true;
-        }
+            bool success = false;
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                success = xTimerChangePeriodFromISR(handle, NewPeriod, &taskWoken);
+                detail::yieldFromIsr(taskWoken);
+            }
+            else
+            {
+                success = xTimerChangePeriod(handle, NewPeriod, CmdTimeout);
+            }
 
-        /**
-         *  Change a timer's period from ISR context.
-         *
-         *  @param NewPeriod The period in ticks.
-         *  @param pxHigherPriorityTaskWoken Did this operation result in a
-         *         rescheduling event.
-         *  @returns true if this command will be sent to the timer code,
-         *           false if it will not (i.e. timeout).
-         */
-        bool SetPeriodFromISR(TickType_t NewPeriod,
-                              BaseType_t *pxHigherPriorityTaskWoken)
-        {
-            return xTimerChangePeriodFromISR(handle, NewPeriod, pxHigherPriorityTaskWoken) == pdFALSE ? false : true;
+            return success;
         }
 
 #if (INCLUDE_xTimerGetTimerDaemonTaskHandle == 1)
@@ -196,7 +186,7 @@ namespace frt
          *
          *  @return Task handle of the FreeRTOS timer task.
          */
-        static TaskHandle_t GetTimerDaemonHandle()
+        static TaskHandle_t getTimerDaemonHandle()
         {
             return xTimerGetTimerDaemonTaskHandle();
         }
@@ -216,7 +206,7 @@ namespace frt
          *  Implementation of your actual timer code.
          *  You must override this function.
          */
-        virtual void Run() = 0;
+        virtual void run() = 0;
 
         /////////////////////////////////////////////////////////////////////////
         //
@@ -239,9 +229,10 @@ namespace frt
         static void TimerCallbackFunctionAdapter(TimerHandle_t xTimer)
         {
             Timer *timer = static_cast<Timer *>(pvTimerGetTimerID(xTimer));
-            timer->Run();
+            timer->run();
         }
     };
+
 }
 
 #endif // __FRT_TIMER_H__
