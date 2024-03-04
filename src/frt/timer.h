@@ -27,12 +27,22 @@ namespace frt
               TickType_t PeriodInTicks,
               bool Periodic = true)
         {
+            // TODO: change to using msecs outside and convert inside
+            // const TickType_t ticks = pdMS_TO_TICKS(msecs);
+#if configSUPPORT_STATIC_ALLOCATION > 0
+            handle = xTimerCreateStatic(TimerName,
+                                        PeriodInTicks,
+                                        Periodic ? pdTRUE : pdFALSE,
+                                        this,
+                                        TimerCallbackFunctionAdapter,
+                                        &buffer);
+#else
             handle = xTimerCreate(TimerName,
                                   PeriodInTicks,
                                   Periodic ? pdTRUE : pdFALSE,
                                   this,
                                   TimerCallbackFunctionAdapter);
-
+#endif
             assert(handle != nullptr);
         }
 
@@ -50,12 +60,21 @@ namespace frt
         Timer(TickType_t PeriodInTicks,
               bool Periodic = true)
         {
+            // const TickType_t ticks = pdMS_TO_TICKS(msecs);
+#if configSUPPORT_STATIC_ALLOCATION > 0
+            handle = xTimerCreateStatic(NULL,
+                                        PeriodInTicks,
+                                        Periodic ? pdTRUE : pdFALSE,
+                                        this,
+                                        TimerCallbackFunctionAdapter,
+                                        &buffer);
+#else
             handle = xTimerCreate(NULL,
                                   PeriodInTicks,
                                   Periodic ? pdTRUE : pdFALSE,
                                   this,
                                   TimerCallbackFunctionAdapter);
-
+#endif
             assert(handle != nullptr);
         }
 
@@ -72,7 +91,7 @@ namespace frt
          *
          *  @return true if the timer is active, false otherwise.
          */
-        bool IsActive()
+        bool isActive()
         {
             return xTimerIsTimerActive(handle) == pdFALSE ? false : true;
         }
@@ -219,6 +238,9 @@ namespace frt
          *  Reference to the underlying timer handle.
          */
         TimerHandle_t handle;
+#if configSUPPORT_STATIC_ALLOCATION > 0
+        StaticTimer_t buffer;
+#endif
 
         /**
          *  Adapter function that allows you to write a class

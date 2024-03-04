@@ -119,7 +119,7 @@ namespace frt
     public:
         InputTimer(InputPinState *inputState, Publisher<InputEvent> *pub);
         virtual ~InputTimer();
-        void Run() override;
+        void run() override;
 
         inline void setInputFilter(const InputType filter)
         {

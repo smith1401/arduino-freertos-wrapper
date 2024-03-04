@@ -56,7 +56,9 @@ bool BurstFiringOutputControlService::run()
         msg.timestamp = xTaskGetTickCount();
         _pub_pid_calc_event->publish(msg);
 
+        FRT_CRITICAL_ENTER();
         _last_pid_evt_count = _zero_cross_count;
+        FRT_CRITICAL_EXIT();
     }
 
     // FRT_LOG_DEBUG("New output power: %d -> %d bursts", output_power.power, bursts);
@@ -80,8 +82,6 @@ void BurstFiringOutputControlService::zero_cross_isr()
 #endif
 {
     // If the number of bursts is greater than 0 -> pulse
-    FRT_CRITICAL_ENTER();
-
     if (_burst_count > 0)
     {
         pulse_output();
@@ -89,10 +89,13 @@ void BurstFiringOutputControlService::zero_cross_isr()
     }
 
     _zero_cross_count++;
+}
 
-    FRT_CRITICAL_EXIT();
-
-    // post();
+void frt::BurstFiringOutputControlService::gracefulShutdown()
+{
+    detachInterrupt(digitalPinToInterrupt(_zero_cross_pin));
+    _burst_count = 0;
+    FRT_LOG_DEBUG("[ %s ] Deactivated interrupt in gracefulShutdown()", m_name);
 }
 
 void BurstFiringOutputControlService::init_pulse_timer()

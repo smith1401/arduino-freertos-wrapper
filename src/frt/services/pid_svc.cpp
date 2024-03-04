@@ -8,11 +8,14 @@ frt::PIDService::PIDService(float p, float i, float d, bool *calc_pid) : _input(
                                                                          _last_tick_time(0.0),
                                                                          _calc_pid(calc_pid)
 {
-    // Init publisher and subscribers
+    // Init publisher
     _output_pub = frt::pubsub::advertise<OutputPower>(RECORD_OUTPUT_POWER);
+    _pid_err_pub = frt::pubsub::advertise<msgs::PIDError>(RECORD_PID_ERRORS);
+
+    // Init subscribers
     _input_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_TEMPERATURE);
     _target_sub = frt::pubsub::subscribe<msgs::Temperature>(RECORD_PID_TARGET);
-    _pid_sub = frt::pubsub::subscribe<msgs::PID>(RECORD_PID_VALUES);
+    _pid_sub = frt::pubsub::subscribe<msgs::PIDInput>(RECORD_PID_VALUES);
     _calc_sub = frt::pubsub::subscribe<msgs::Message, 1>(RECORD_CALC_PID);
 
     // Init PID
@@ -28,10 +31,10 @@ frt::PIDService::PIDService(float p, float i, float d, bool *calc_pid) : _input(
     _pid->registerTimeFunction(millis);
     _pid->setOutputBounds(0.0, 100.0);
     _pid->setOutputBounded(true);
-    _pid->setMaxIntegralCumulation(1000);
+    _pid->setMaxIntegralCumulation(10000);
 
     // Init subscriber sync
-    _sub_queue_set = xQueueCreateSet(20);
+    _sub_queue_set = xQueueCreateSet(50);
     _input_sub->addToSet(_sub_queue_set);
     _target_sub->addToSet(_sub_queue_set);
     _pid_sub->addToSet(_sub_queue_set);
@@ -61,8 +64,12 @@ bool frt::PIDService::run()
         if (_target_sub->receive(target))
         {
             // Limit target temperature to 300 degrees
-            target.temperature = min<float>(300, target.temperature);
-            
+            if (target.temperature > MAX_TEMP)
+            {
+                FRT_LOG_DEBUG("Trying to set a temperature of %.1f C which is too high. Will be reduced to %.1f C", target.temperature, MAX_TEMP);
+                target.temperature = MAX_TEMP;
+            }
+
             FRT_LOG_DEBUG("Setpoint: %.1f", target.temperature);
             _pid->setTarget(target.temperature);
         }
@@ -71,9 +78,15 @@ bool frt::PIDService::run()
     // PID parameters
     if (_pid_sub->canReceive(queue_set_member))
     {
-        frt::msgs::PID pid;
+        frt::msgs::PIDInput pid;
         if (_pid_sub->receive(pid))
         {
+            if (pid.setpoint > MAX_TEMP)
+            {
+                FRT_LOG_DEBUG("Trying to set a temperature of %.1f C which is too high. Will be reduced to %.1f C", pid.setpoint, MAX_TEMP);
+                pid.setpoint = MAX_TEMP;
+            }
+
             FRT_LOG_DEBUG("Setpoint: %.1f\tP: %2.3f\tI: %2.3f\tD: %2.3f", pid.setpoint, pid.p, pid.i, pid.d);
             _pid->setTarget(pid.setpoint);
             _pid->setPID(pid.p, pid.i, pid.d);
@@ -83,28 +96,20 @@ bool frt::PIDService::run()
     // PID calculate
     if (_calc_sub->canReceive(queue_set_member))
     {
-        // TODO: check if calc_pid is really necessary
-        // frt::msgs::Message msg;
-        // OutputPower output;
-        // if (_calc_sub->receive(msg) && (*_calc_pid))
-        // {
-        //     _pid->tick();
-        //     output.power = static_cast<uint8_t>(_output);
-        //     _output_pub->publish(output);
-        // }
-        // else
-        // {
-        //     output.power = 0;
-        //     _output_pub->publish(output);
-        // }
-
         frt::msgs::Message msg;
         if (_calc_sub->receive(msg))
         {
             OutputPower output;
+            msgs::PIDError err;
 
             _pid->tick();
-            FRT_LOG_DEBUG("%.3f %.3f %.3f", _pid->getProportionalComponent(), _pid->getIntegralComponent(), _pid->getDerivativeComponent());
+
+            err.error = _pid->getError();
+            err.ep = _pid->getProportionalComponent();
+            err.ei = _pid->getIntegralComponent();
+            err.ed = _pid->getDerivativeComponent();
+            // FRT_LOG_DEBUG("%.3f %.3f %.3f", _pid->getProportionalComponent(), _pid->getIntegralComponent(), _pid->getDerivativeComponent());
+            _pid_err_pub->publish(err);
 
             output.power = static_cast<uint8_t>(_output);
             // FRT_LOG_DEBUG("New output power: %d", output.power);
@@ -112,24 +117,5 @@ bool frt::PIDService::run()
         }
     }
 
-    // uint32_t now = xTaskGetTickCount();
-    // uint32_t elapsed_ms = (now - _last_tick_time) * portTICK_PERIOD_MS;
-
-    // if (elapsed_ms > OUTPUT_RATE_MS)
-    // {
-    //     _pid->tick();
-
-    //     OutputPower output;
-    //     output.power = static_cast<uint8_t>(_output);
-    //     _output_pub->publish(output);
-
-    //     _last_tick_time = now;
-    // }
-
     return true;
-}
-
-float frt::PIDService::getTarget()
-{
-    return 10.5;
 }

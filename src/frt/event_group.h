@@ -2,7 +2,7 @@
 #define __FRT_EVENT_GROUP_H__
 
 #include "frt.h"
-
+#include "log.h"
 namespace frt
 {
 

@@ -8,7 +8,7 @@
 
 #define RECORD_OUTPUT_POWER "output_power"
 #define RECORD_CALC_PID "calc_pid"
-#define OUTPUT_RES_HZ 5
+#define OUTPUT_RES_HZ 1
 #define OUTPUT_RATE_MS (1 / (float)OUTPUT_RES_HZ) * 1000
 
 namespace frt

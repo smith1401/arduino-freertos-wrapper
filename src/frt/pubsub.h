@@ -110,16 +110,16 @@ namespace frt
             {
                 _queue.override(msg);
             }
-            // If the queue is full, pop the oldest elements and push the new one
-            else if (_queue.getFillLevel() == QUEUE_SIZE)
+            // If there are spaces available, then push to the queue
+            else if (_queue.availableForWrite())
+            {
+                _queue.push(msg);
+            }
+            // Else pop the last element and push
+            else
             {
                 T temp;
                 _queue.pop(temp);
-                _queue.push(msg);
-            }
-            // Else just push the element
-            else
-            {
                 _queue.push(msg);
             }
         }
