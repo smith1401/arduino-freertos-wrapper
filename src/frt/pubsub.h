@@ -60,6 +60,7 @@ namespace frt
         }
 
     public:
+        const char *topic() const { return _topic; }
         void publish(const T msg)
         {
             for (auto sub : _subscribers)
@@ -100,6 +101,7 @@ namespace frt
         }
 
     public:
+        const char *topic() const { return _topic; }
         void addToSet(QueueSetHandle_t &setHandle)
         {
             _queue.addToSet(setHandle);
