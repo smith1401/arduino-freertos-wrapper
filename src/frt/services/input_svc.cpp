@@ -17,7 +17,7 @@ InputTimer::~InputTimer()
 {
 }
 
-void InputTimer::Run()
+void InputTimer::run()
 {
     InputEvent event;
     event.sequence_source = INPUT_SEQUENCE_SOURCE_HARDWARE;
@@ -119,12 +119,12 @@ bool InputService::run()
                 _counter++;
                 pinState.counter = _counter;
                 event.sequence_counter = pinState.counter;
-                pinState.press_timer->SetPeriod(pdMS_TO_TICKS(INPUT_PRESS_TICKS));
+                pinState.press_timer->setPeriod(pdMS_TO_TICKS(INPUT_PRESS_TICKS));
             }
             else
             {
                 event.sequence_counter = pinState.counter;
-                pinState.press_timer->Stop();
+                pinState.press_timer->stop();
                 if (pinState.press_counter < INPUT_LONG_PRESS_COUNTS)
                 {
                     event.type = InputType::Short;
@@ -161,7 +161,5 @@ void IRAM_ATTR InputService::input_isr()
 void InputService::input_isr()
 #endif
 {
-    // FRT_CRITICAL_ENTER();
     post();
-    // FRT_CRITICAL_EXIT();
 }

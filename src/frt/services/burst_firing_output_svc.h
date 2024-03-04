@@ -23,6 +23,7 @@ namespace frt
 
     protected:
         void zero_cross_isr() override;
+        void gracefulShutdown() override;
 
     private:
         void init_pulse_timer();

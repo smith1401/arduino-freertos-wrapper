@@ -15,12 +15,20 @@ namespace frt
             float temperature;
         };
 
-        struct PID : public Message
+        struct PIDInput : public Message
         {
             float setpoint;
             float p;
             float i;
             float d;
+        };
+
+        struct PIDError : public Message
+        {
+            float error;
+            float ep;
+            float ei;
+            float ed;
         };
     }
 }
