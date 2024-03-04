@@ -26,9 +26,9 @@ namespace frt
         explicit Queue(const Queue &other) = delete;
         Queue &operator=(const Queue &other) = delete;
 
-        unsigned int getFillLevel() const
+        unsigned int availableForWrite() const
         {
-            return QUEUE_SIZE - uxQueueSpacesAvailable(_handle);
+            return uxQueueSpacesAvailable(_handle);
         }
 
         unsigned int available() const

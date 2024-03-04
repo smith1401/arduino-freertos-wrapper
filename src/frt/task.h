@@ -2,22 +2,46 @@
 #define __FRT_TASK_H__
 
 #include "frt.h"
+#include "log.h"
+#include "manager.h"
 
 #define FLAG_TASK 0x00000001
 
 namespace frt
 {
-    // TODO: This should work in theory. However vertain FreeRTOS implementation do not define enough memory as configMINIMAL_STACK_SIZE, 1024 is a good guess!
+    class ITask
+    {
+    protected:
+        TaskHandle_t m_handle;
+        const char *m_name;
+
+    public:
+        ITask() : m_handle(nullptr),
+                  m_name("")
+        {
+        }
+
+        virtual ~ITask() {}
+        virtual void gracefulShutdown(){};
+
+        const TaskHandle_t *handle() const
+        {
+            return &m_handle;
+        }
+
+        const char *name() const
+        {
+            return m_name;
+        }
+    };
+    // This should work in theory. However vertain FreeRTOS implementation do not define enough memory as configMINIMAL_STACK_SIZE, 1024 is a good guess!
     // template <typename T, unsigned int STACK_SIZE_BYTES = configMINIMAL_STACK_SIZE * sizeof(StackType_t)>
     template <typename T, unsigned int STACK_SIZE_BYTES = 1024>
-    class Task
+    class Task : public ITask
     {
     public:
         Task() : m_running(false),
-                 m_do_stop(false),
-                 m_handle(nullptr),
-                 m_name(""),
-                 m_higher_priority_task_woken(pdFALSE)
+                 m_do_stop(false)
         {
         }
 
@@ -29,7 +53,7 @@ namespace frt
         explicit Task(const Task &other) = delete;
         Task &operator=(const Task &other) = delete;
 
-        bool start(unsigned char priority = 0, const char *name = "")
+        TaskHandle_t start(unsigned char priority = 0, const char *name = "")
         {
             this->m_name = name;
 
@@ -47,25 +71,28 @@ namespace frt
                 priority,
                 m_stack,
                 &m_state);
-            return m_handle;
 #else
-            return xTaskCreate(
-                       entryPoint,
-                       name,
-                       STACK_SIZE_BYTES / sizeof(StackType_t),
-                       this,
-                       priority,
-                       &m_handle) == pdPASS;
+            xTaskCreate(
+                entryPoint,
+                name,
+                STACK_SIZE_BYTES / sizeof(StackType_t),
+                this,
+                priority,
+                &m_handle);
 #endif
+            Manager::getInstance()->addTask(this, name);
+            return m_handle;
         }
 
         bool stop()
         {
+            Manager::getInstance()->removeTask(m_name);
             return stop(false);
         }
 
         bool stopFromIdleTask()
         {
+            Manager::getInstance()->removeTask(m_name);
             return stop(true);
         }
 
@@ -102,11 +129,6 @@ namespace frt
             {
                 xTaskNotifyGive(m_handle);
             }
-        }
-
-        const TaskHandle_t *handle() const
-        {
-            return &m_handle;
         }
 
     protected:
@@ -234,12 +256,88 @@ namespace frt
 
         volatile bool m_running;
         volatile bool m_do_stop;
-        TaskHandle_t m_handle;
-        const char *m_name;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         StackType_t m_stack[STACK_SIZE_BYTES / sizeof(StackType_t)];
         StaticTask_t m_state;
 #endif
     };
+
+    namespace task
+    {
+        inline void suspendOtherTasks()
+        {
+            Manager *man = Manager::getInstance();
+            const char *name = pcTaskGetName(NULL);
+
+            for (auto t : *man->getTasks())
+            {
+                if (strcmp(t.second->name(), name) != 0)
+                {
+                    Serial.printf("Task [%s] will be suspended!\r\n", t.second->name());
+                    t.second->gracefulShutdown();
+                    vTaskSuspend(*t.second->handle());
+                }
+            }
+
+#ifdef ESP32
+            TaskHandle_t loopHandle = xTaskGetHandle("loopTask");
+
+            if (loopHandle != NULL)
+            {
+                vTaskSuspend(loopHandle);
+                Serial.printf("Task [looptask] will be suspended!\r\n");
+            }
+#endif
+        }
+
+        inline void resumeOtherTasks()
+        {
+            Manager *man = Manager::getInstance();
+            const char *name = pcTaskGetName(NULL);
+
+            for (auto t : *man->getTasks())
+            {
+                if (strcmp(t.second->name(), name) != 0)
+                {
+                    vTaskResume(*t.second->handle());
+                }
+            }
+
+#ifdef ESP32
+            TaskHandle_t loopHandle = xTaskGetHandle("loopTask");
+
+            if (loopHandle != NULL)
+            {
+                vTaskResume(loopHandle);
+                Serial.printf("Task [looptask] will be resumed!\r\n");
+            }
+#endif
+        }
+
+        inline void deleteOtherTasks()
+        {
+            Manager *man = Manager::getInstance();
+            const char *name = pcTaskGetName(NULL);
+
+            for (auto t : *man->getTasks())
+            {
+                if (strcmp(t.second->name(), name) != 0)
+                {
+                    t.second->gracefulShutdown();
+                    vTaskDelete(*t.second->handle());
+                }
+            }
+
+#ifdef ESP32
+            TaskHandle_t loopHandle = xTaskGetHandle("loopTask");
+
+            if (loopHandle != NULL)
+            {
+                vTaskDelete(loopHandle);
+                Serial.printf("Task [looptask] will be deleted!\r\n");
+            }
+#endif
+        }
+    }
 }
 #endif // __FRT_TASK_H__

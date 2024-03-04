@@ -11,6 +11,7 @@
 namespace frt
 {
     class IPublisher;
+    class ITask;
 
     template <typename T, unsigned int QUEUE_SIZE>
     class Publisher;
@@ -18,12 +19,16 @@ namespace frt
     template <typename T, unsigned int QUEUE_SIZE>
     class Subscriber;
 
+    template <typename T, unsigned int STACK_SIZE_BYTES>
+    class Task;
+
     class Manager
     {
     private:
         static Manager *instance;
         static Mutex mutex;
         static std::map<size_t, IPublisher *> publishers;
+        static std::map<size_t, ITask *> tasks;
 
         Manager() {}
 
@@ -35,6 +40,10 @@ namespace frt
 
         static Manager *getInstance();
         bool removePublisher(const char *topic);
+
+        std::map<size_t, ITask *> *getTasks() { return &tasks; }
+        bool addTask(ITask *t, const char *name);
+        bool removeTask(const char *name);
 
         template <typename T, unsigned int QUEUE_SIZE = 10>
         Publisher<T, QUEUE_SIZE> *aquirePublisher(const char *topic)

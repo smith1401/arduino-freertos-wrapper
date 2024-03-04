@@ -50,9 +50,22 @@ void Log::log(LogLevel level, const char *file, int line, const char *fmt, ...)
 
         uint32_t ticks = xTaskGetTickCount();
 
+        // Get task name formatted
+        char nameBuf[16];
+        const char *taskName = pcTaskGetTaskName(NULL);
+        size_t len = sprintf(nameBuf, "[ %.11s ]", taskName);
+
+        for (size_t i = len; i < sizeof(nameBuf); i++)
+        {
+            nameBuf[i] = ' ';
+        }
+        nameBuf[sizeof(nameBuf) - 1] = '\0';
+        
+
 #ifdef LOG_USE_COLOR
-        int size = snprintf(buf, sizeof(buf), "%02lu:%02lu:%03lu %s%-5s \x1b[0m", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level]);
-        // int size = snprintf(buf, sizeof(buf), "%02lu:%02lu:%03lu [%s | %d] %s%-5s \x1b[0m", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, ev.file, ev.line, level_colors[ev.level], level_strings[ev.level]);
+        // int size = snprintf(buf, sizeof(buf), "%02lu:%02lu:%03lu %s%-5s \x1b[0m", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level]);
+        int size = snprintf(buf, sizeof(buf), "%02lu:%02lu:%03lu %s %s%-5s \x1b[0m", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, nameBuf, level_colors[ev.level], level_strings[ev.level]);
+        // int size = snprintf(buf, sizeof(buf), "%02lu:%02lu:%03lu [%s:%d] %s%-5s \x1b[0m", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, ev.file, ev.line, level_colors[ev.level], level_strings[ev.level]);
         // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level], ev.file, ev.line);
         // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s\x1b[0m \x1b[90mTask#%d %s[%d]\x1b[0m ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level], task_num, task_name, task_prio);
         // int size = snprintf(buf, sizeof(buf), "%02d:%02d:%03d %s%-5s\x1b[0m \x1b[90m%s\x1b[0m ", ticks / 1000 / 60, (ticks / 1000) % 60, ticks % 1000, level_colors[ev.level], level_strings[ev.level], task_name);
@@ -70,6 +83,7 @@ void Log::log(LogLevel level, const char *file, int line, const char *fmt, ...)
 
         for (auto &s : streams)
         {
+            LockGuard lock(mutex);
             s->write(buf, size);
             // s->flush();
         }

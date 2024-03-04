@@ -199,15 +199,4 @@ namespace frt
         }
 }
 
-// #include "log.h"
-// #include "mutex.h"
-// #include "queue.h"
-// #include "task.h"
-// #include "timer.h"
-// #include "msgs.h"
-// #include "manager.h"
-// #include "pubsub.h"
-// #include "node.h"
-// #include "messagebuffer.h"
-
 #endif // __FRT_H__
