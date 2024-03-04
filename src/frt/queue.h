@@ -109,7 +109,7 @@ namespace frt
             }
             else
             {
-                // changed to also allow 0 wat time for timer callbacks
+                // changed to also allow 0 wait time for timer callbacks
                 // if (xQueueSend(_handle, &item, max(1U, (unsigned int)ticks)) != pdTRUE)
                 if (xQueueSend(_handle, &item, ticks) != pdTRUE)
                 {
