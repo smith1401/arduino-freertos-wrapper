@@ -26,11 +26,12 @@ namespace frt
     class Publisher : public IPublisher
     {
     private:
-        const char *_topic;
+        char _topic[16];
         std::vector<Subscriber<T, QUEUE_SIZE> *> _subscribers;
 
-        Publisher(const char *topic) : _topic(topic)
+        Publisher(const char *topic)
         {
+            strncpy(_topic, topic, sizeof(_topic));
         }
 
         ~Publisher()
@@ -63,7 +64,7 @@ namespace frt
         const char *topic() const { return _topic; }
         void publish(const T msg, unsigned int msecs = portMAX_DELAY / configTICK_RATE_HZ)
         {
-            for (auto sub : _subscribers)
+            for (Subscriber<T, QUEUE_SIZE> *&sub : _subscribers)
             {
                 sub->send(msg, msecs);
             }
@@ -78,10 +79,11 @@ namespace frt
     private:
         typedef std::function<void(const T *)> SubscriberCallback;
         Queue<T, QUEUE_SIZE> _queue;
-        const char *_topic;
+        char _topic[16];
 
-        Subscriber(const char *topic) : _topic(topic)
+        Subscriber(const char *topic)
         {
+            strncpy(_topic, topic, sizeof(_topic));
         }
 
         ~Subscriber()
