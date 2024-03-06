@@ -133,7 +133,8 @@ namespace frt
                 BaseType_t taskWoken = pdFALSE;
                 success = xSemaphoreGiveFromISR(handle, &taskWoken);
 
-                detail::yieldFromIsr(taskWoken);
+                if (success)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
                 success = xSemaphoreGive(handle); 

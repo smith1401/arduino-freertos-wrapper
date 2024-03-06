@@ -164,14 +164,20 @@ namespace frt
 
         bool wait()
         {
-            return ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
+            if (FRT_IS_ISR())
+                return false;
+            else
+                return ulTaskNotifyTake(pdFALSE, portMAX_DELAY);
         }
 
         bool wait(unsigned int msecs)
         {
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
 
-            return ulTaskNotifyTake(pdFALSE, max(1U, (unsigned int)ticks));
+            if (FRT_IS_ISR())
+                return false;
+            else
+                return ulTaskNotifyTake(pdFALSE, max(1U, (unsigned int)ticks));
         }
 
         bool wait(unsigned int msecs, unsigned int &remainder)
@@ -180,7 +186,10 @@ namespace frt
             const TickType_t ticks = pdMS_TO_TICKS(msecs);
             remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
 
-            uint32_t notifiedValue;
+            if (FRT_IS_ISR())
+                return false;
+
+                uint32_t notifiedValue;
             if (ulTaskNotifyTake(pdFALSE, max(1U, (unsigned int)ticks)))
             {
                 remainder = 0;

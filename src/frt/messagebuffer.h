@@ -40,6 +40,15 @@ namespace frt
 #endif
         }
 
+        unsigned int available() const
+        {
+#if defined(NRF52) || defined(NRF52840_XXAA)
+            return xMessageBufferSpaceAvailable(handle);
+#else
+            return xMessageBufferSpacesAvailable(handle);
+#endif
+        }
+
         unsigned int size() const
         {
             return BUFFER_SIZE;
@@ -54,7 +63,8 @@ namespace frt
                 BaseType_t taskWoken = pdFALSE;
                 xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
 
-                detail::yieldFromIsr(taskWoken);
+                if (xBytesSent > 0)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
                 xBytesSent = xMessageBufferSend(handle, (void *)data, len, portMAX_DELAY);
@@ -73,7 +83,8 @@ namespace frt
                 BaseType_t taskWoken = pdFALSE;
                 xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
 
-                detail::yieldFromIsr(taskWoken);
+                if (xBytesSent > 0)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
                 xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
@@ -94,7 +105,8 @@ namespace frt
                 BaseType_t taskWoken = pdFALSE;
                 xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
 
-                detail::yieldFromIsr(taskWoken);
+                if (xBytesSent > 0)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
                 xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
@@ -117,7 +129,8 @@ namespace frt
                 BaseType_t taskWoken = pdFALSE;
                 xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
 
-                detail::yieldFromIsr(taskWoken);
+                if (xBytesReceived > 0)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
                 xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, portMAX_DELAY);
@@ -135,7 +148,8 @@ namespace frt
                 BaseType_t taskWoken = pdFALSE;
                 xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
 
-                detail::yieldFromIsr(taskWoken);
+                if (xBytesReceived > 0)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
                 xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));
@@ -155,7 +169,8 @@ namespace frt
                 BaseType_t taskWoken = pdFALSE;
                 xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
 
-                detail::yieldFromIsr(taskWoken);
+                if (xBytesReceived > 0)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
                 xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));

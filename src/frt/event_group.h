@@ -29,15 +29,18 @@ namespace frt
         {
             if (FRT_IS_ISR())
             {
-                #if ( ( configUSE_TRACE_FACILITY == 1 ) && ( INCLUDE_xTimerPendFunctionCall == 1 ) && ( configUSE_TIMERS == 1 ) )
+                EventBits_t bitsSet;
+#if ((configUSE_TRACE_FACILITY == 1) && (INCLUDE_xTimerPendFunctionCall == 1) && (configUSE_TIMERS == 1))
                 BaseType_t taskWoken = pdFALSE;
-                EventBits_t bitsSet = xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken);
+                bitsSet = xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken);
 
                 if (bitsSet != pdFAIL)
                 {
                     detail::yieldFromIsr(taskWoken);
                 }
-                #endif
+#else
+#warning "xEventGroupSetBitsFromISR not implemented for this platform"
+#endif
                 return bitsSet;
             }
             else

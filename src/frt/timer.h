@@ -113,7 +113,9 @@ namespace frt
             {
                 BaseType_t taskWoken = pdFALSE;
                 success = xTimerStartFromISR(handle, &taskWoken);
-                detail::yieldFromIsr(taskWoken);
+
+                if (success)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
             {
@@ -138,7 +140,9 @@ namespace frt
             {
                 BaseType_t taskWoken = pdFALSE;
                 success = xTimerStopFromISR(handle, &taskWoken);
-                detail::yieldFromIsr(taskWoken);
+
+                if (success)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
             {
@@ -163,7 +167,9 @@ namespace frt
             {
                 BaseType_t taskWoken = pdFALSE;
                 success = xTimerResetFromISR(handle, &taskWoken);
-                detail::yieldFromIsr(taskWoken);
+
+                if (success)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
             {
@@ -190,7 +196,9 @@ namespace frt
             {
                 BaseType_t taskWoken = pdFALSE;
                 success = xTimerChangePeriodFromISR(handle, NewPeriod, &taskWoken);
-                detail::yieldFromIsr(taskWoken);
+                
+                if (success)
+                    detail::yieldFromIsr(taskWoken);
             }
             else
             {
