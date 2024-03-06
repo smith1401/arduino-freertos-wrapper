@@ -4,8 +4,10 @@ using namespace frt;
 
 Manager *Manager::instance{nullptr};
 Mutex Manager::mutex;
-std::map<size_t, IPublisher *> Manager::publishers;
-std::map<size_t, ITask *> Manager::tasks;
+// std::map<size_t, IPublisher *> Manager::publishers;
+// std::map<size_t, ITask *> Manager::tasks;
+std::unordered_map<size_t, IPublisher *> Manager::publishers;
+std::unordered_map<size_t, ITask *> Manager::tasks;
 
 Manager *Manager::getInstance()
 {
