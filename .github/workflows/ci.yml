@@ -70,7 +70,8 @@ jobs:
             # global library). It must still not be picked up on this platform.
             git clone -q --depth 1 https://github.com/stm32duino/STM32FreeRTOS.git /tmp/proj/lib/STM32FreeRTOS
           fi
-          pio run -d /tmp/proj -e ${{ matrix.env }} 2>&1 | tee /tmp/build.log
+          # -v prints the complete dependency graph (which library pulls in which)
+          pio run -v -d /tmp/proj -e ${{ matrix.env }} 2>&1 | tee /tmp/build.log
           exit "${PIPESTATUS[0]}"
 
       - name: Only the platform's own FreeRTOS is built
@@ -79,7 +80,7 @@ jobs:
         if: matrix.env != 'stm32'
         run: |
           # Installing it is fine, using it is not
-          if grep -nE '\|-- STM32FreeRTOS|Compiling .*STM32FreeRTOS' /tmp/build.log; then
+          if grep -nE '\|-- STM32duino FreeRTOS|Compiling .*STM32FreeRTOS|STM32FreeRTOS/.*\.o$' /tmp/build.log; then
             echo "::error::STM32FreeRTOS was compiled for ${{ matrix.env }}"
             exit 1
           fi
