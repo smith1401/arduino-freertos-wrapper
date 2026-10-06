@@ -1,17 +1,23 @@
 #ifndef __FRT_MESSAGEBUFFER_H__
 #define __FRT_MESSAGEBUFFER_H__
 
-#include <functional>
-
 #include "frt.h"
 
 namespace frt
 {
+    /**
+     *  Message buffer for variable length messages.
+     *
+     *  Like the underlying FreeRTOS object it is only safe for a single
+     *  writer and a single reader. Use a Mutex if several tasks write or
+     *  read. Every message additionally needs sizeof(size_t) bytes of space
+     *  for its length.
+     *
+     *  Timeouts are in milliseconds: 0 does not block, frt::FOREVER blocks.
+     */
     template <unsigned int BUFFER_SIZE = 512>
     class MessageBuffer
     {
-        typedef std::function<void(MessageBufferHandle_t, BaseType_t, BaseType_t *const)> MessageBufferCallback;
-
     public:
         MessageBuffer() : handle(
 #if configSUPPORT_STATIC_ALLOCATION > 0
@@ -21,6 +27,7 @@ namespace frt
 #endif
                           )
         {
+            configASSERT(handle);
         }
 
         ~MessageBuffer()
@@ -28,19 +35,11 @@ namespace frt
             vMessageBufferDelete(handle);
         }
 
-        explicit MessageBuffer(const MessageBuffer &other) = delete;
+        MessageBuffer(const MessageBuffer &other) = delete;
         MessageBuffer &operator=(const MessageBuffer &other) = delete;
 
-        unsigned int getFillLevel() const
-        {
-#if defined(NRF52) || defined(NRF52840_XXAA)
-            return BUFFER_SIZE - xMessageBufferSpaceAvailable(handle);
-#else
-            return BUFFER_SIZE - xMessageBufferSpacesAvailable(handle);
-#endif
-        }
-
-        unsigned int available() const
+        /** Number of bytes that can still be written (including length headers). */
+        unsigned int availableForWrite() const
         {
 #if defined(NRF52) || defined(NRF52840_XXAA)
             return xMessageBufferSpaceAvailable(handle);
@@ -49,69 +48,62 @@ namespace frt
 #endif
         }
 
+        /**
+         *  @deprecated This returns the free space, not the amount of data to
+         *  read. Use availableForWrite() (same value) or getFillLevel().
+         */
+        __attribute__((deprecated("returns free space; use availableForWrite()")))
+        unsigned int available() const
+        {
+            return availableForWrite();
+        }
+
+        /** Number of bytes in use (including length headers). */
+        unsigned int getFillLevel() const
+        {
+            return BUFFER_SIZE - availableForWrite();
+        }
+
+        /** Length of the next message, 0 if the buffer is empty. */
+        size_t nextMessageSize() const
+        {
+#if defined(xMessageBufferNextLengthBytes) || (tskKERNEL_VERSION_MAJOR > 10) || (tskKERNEL_VERSION_MAJOR == 10 && tskKERNEL_VERSION_MINOR >= 2)
+            return xMessageBufferNextLengthBytes(handle);
+#else
+            return 0;
+#endif
+        }
+
+        bool isEmpty() const
+        {
+            return xMessageBufferIsEmpty(handle) == pdTRUE;
+        }
+
+        bool isFull() const
+        {
+            return xMessageBufferIsFull(handle) == pdTRUE;
+        }
+
+        /** Remove all messages. Only allowed if no task is blocked on the buffer. */
+        bool clear()
+        {
+            return xMessageBufferReset(handle) == pdPASS;
+        }
+
         unsigned int size() const
         {
             return BUFFER_SIZE;
         }
 
-        bool send(const uint8_t *data, size_t len)
+        /** Send one message. Returns true if the complete message was written. */
+        bool send(const void *data, size_t len, unsigned int msecs = FOREVER)
         {
-            size_t xBytesSent;
-
-            if (FRT_IS_ISR())
-            {
-                BaseType_t taskWoken = pdFALSE;
-                xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
-
-                if (xBytesSent > 0)
-                    detail::yieldFromIsr(taskWoken);
-            }
-            else
-                xBytesSent = xMessageBufferSend(handle, (void *)data, len, portMAX_DELAY);
-
-            return (xBytesSent == len);
+            return sendTicks(data, len, detail::msToTicks(msecs));
         }
 
-        bool send(const uint8_t *data, size_t len, unsigned int msecs)
+        bool send(const void *data, size_t len, unsigned int msecs, unsigned int &remainder)
         {
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
-
-            size_t xBytesSent;
-
-            if (FRT_IS_ISR())
-            {
-                BaseType_t taskWoken = pdFALSE;
-                xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
-
-                if (xBytesSent > 0)
-                    detail::yieldFromIsr(taskWoken);
-            }
-            else
-                xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
-
-            return (xBytesSent == len);
-        }
-
-        bool send(const uint8_t *data, size_t len, unsigned int msecs, unsigned int &remainder)
-        {
-            msecs += remainder;
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
-            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
-
-            size_t xBytesSent;
-
-            if (FRT_IS_ISR())
-            {
-                BaseType_t taskWoken = pdFALSE;
-                xBytesSent = xMessageBufferSendFromISR(handle, (void *)data, len, &taskWoken);
-
-                if (xBytesSent > 0)
-                    detail::yieldFromIsr(taskWoken);
-            }
-            else
-                xBytesSent = xMessageBufferSend(handle, (void *)data, len, max(1U, (unsigned int)ticks));
-
-            if (xBytesSent == len)
+            if (sendTicks(data, len, detail::msToTicksCarry(msecs, remainder)))
             {
                 remainder = 0;
                 return true;
@@ -120,60 +112,18 @@ namespace frt
             return false;
         }
 
-        size_t receive(uint8_t *data, size_t len)
+        /**
+         *  Receive one message into data (capacity len). Returns the size of the
+         *  message, or 0 on timeout or if the next message is larger than len.
+         */
+        size_t receive(void *data, size_t len, unsigned int msecs = FOREVER)
         {
-            size_t xBytesReceived;
-
-            if (FRT_IS_ISR())
-            {
-                BaseType_t taskWoken = pdFALSE;
-                xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
-
-                if (xBytesReceived > 0)
-                    detail::yieldFromIsr(taskWoken);
-            }
-            else
-                xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, portMAX_DELAY);
-
-            return xBytesReceived;
+            return receiveTicks(data, len, detail::msToTicks(msecs));
         }
 
-        size_t receive(uint8_t *data, size_t len, unsigned int msecs)
+        size_t receive(void *data, size_t len, unsigned int msecs, unsigned int &remainder)
         {
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
-            size_t xBytesReceived;
-
-            if (FRT_IS_ISR())
-            {
-                BaseType_t taskWoken = pdFALSE;
-                xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
-
-                if (xBytesReceived > 0)
-                    detail::yieldFromIsr(taskWoken);
-            }
-            else
-                xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));
-
-            return xBytesReceived;
-        }
-
-        size_t receive(uint8_t *data, size_t len, unsigned int msecs, unsigned int &remainder)
-        {
-            msecs += remainder;
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
-            remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
-            size_t xBytesReceived;
-
-            if (FRT_IS_ISR())
-            {
-                BaseType_t taskWoken = pdFALSE;
-                xBytesReceived = xMessageBufferReceiveFromISR(handle, (void *)data, len, &taskWoken);
-
-                if (xBytesReceived > 0)
-                    detail::yieldFromIsr(taskWoken);
-            }
-            else
-                xBytesReceived = xMessageBufferReceive(handle, (void *)data, len, max(1U, (unsigned int)ticks));
+            const size_t xBytesReceived = receiveTicks(data, len, detail::msToTicksCarry(msecs, remainder));
 
             if (xBytesReceived > 0)
                 remainder = 0;
@@ -182,9 +132,46 @@ namespace frt
         }
 
     private:
+        bool sendTicks(const void *data, size_t len, TickType_t ticks)
+        {
+            size_t xBytesSent;
+
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                xBytesSent = xMessageBufferSendFromISR(handle, data, len, &taskWoken);
+
+                if (xBytesSent > 0)
+                    detail::yieldFromIsr(taskWoken);
+            }
+            else
+                xBytesSent = xMessageBufferSend(handle, data, len, ticks);
+
+            return (xBytesSent == len);
+        }
+
+        size_t receiveTicks(void *data, size_t len, TickType_t ticks)
+        {
+            size_t xBytesReceived;
+
+            if (FRT_IS_ISR())
+            {
+                BaseType_t taskWoken = pdFALSE;
+                xBytesReceived = xMessageBufferReceiveFromISR(handle, data, len, &taskWoken);
+
+                if (xBytesReceived > 0)
+                    detail::yieldFromIsr(taskWoken);
+            }
+            else
+                xBytesReceived = xMessageBufferReceive(handle, data, len, ticks);
+
+            return xBytesReceived;
+        }
+
         MessageBufferHandle_t handle;
 #if configSUPPORT_STATIC_ALLOCATION > 0
-        uint8_t buffer[BUFFER_SIZE];
+        // Older FreeRTOS versions need one byte more than the buffer size.
+        uint8_t buffer[BUFFER_SIZE + 1];
         StaticMessageBuffer_t bufferStruct;
 #endif
     };

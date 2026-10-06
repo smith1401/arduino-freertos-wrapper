@@ -3,6 +3,10 @@
 
 #include "output_control_svc.h"
 
+#if defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+#error "BurstFiringOutputControlService is not supported on arduino-esp32 3.x yet: its RMT API can not be used from an ISR anymore"
+#endif
+
 #if defined(STM32) || defined(NRF52)
 #include <BindArg.h>
 #endif

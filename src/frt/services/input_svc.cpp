@@ -1,3 +1,8 @@
+#include <Arduino.h>
+
+// Needs BindArg on STM32 / nRF52, skip it if that library is not installed
+#if defined(ESP32) || __has_include(<BindArg.h>)
+
 #include "input_svc.h"
 
 #ifdef ESP32
@@ -24,7 +29,7 @@ void InputTimer::run()
     event.sequence_counter = _inputState->counter;
     event.key = _inputState->pin.key;
     event.time = xTaskGetTickCount();
-    _inputState->press_counter++;
+    _inputState->press_counter = _inputState->press_counter + 1;
     if (_inputState->press_counter == INPUT_LONG_PRESS_COUNTS)
     {
         event.type = InputType::Long;
@@ -34,7 +39,7 @@ void InputTimer::run()
     }
     else if (_inputState->press_counter > INPUT_LONG_PRESS_COUNTS)
     {
-        _inputState->press_counter--;
+        _inputState->press_counter = _inputState->press_counter - 1;
         event.type = InputType::Repeat;
 
         if (_inputFilter & event.type)
@@ -77,6 +82,15 @@ InputService::InputService(std::initializer_list<InputPin> inputPins) : _counter
 
 InputService::~InputService()
 {
+    // run() and the ISR use the pin states, stop both before freeing them
+    stop();
+
+    for (auto &state : _inputPinStates)
+    {
+        detachInterrupt(digitalPinToInterrupt(state.pin.gpio));
+        delete state.press_timer;
+    }
+
     _inputPinStates.clear();
 }
 
@@ -116,7 +130,7 @@ bool InputService::run()
             // Short / Long / Repeat timer routine
             if (state)
             {
-                _counter++;
+                _counter = _counter + 1;
                 pinState.counter = _counter;
                 event.sequence_counter = pinState.counter;
                 pinState.press_timer->setPeriod(pdMS_TO_TICKS(INPUT_PRESS_TICKS));
@@ -163,3 +177,5 @@ void InputService::input_isr()
 {
     post();
 }
+
+#endif

@@ -1,3 +1,11 @@
+#include <Arduino.h>
+
+// The Arduino IDE compiles every source file of a library: only build this
+// service where it is supported and its dependencies are installed, so it
+// does not break the build for everyone else.
+#if !(defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)) && \
+    (defined(ESP32) || __has_include(<BindArg.h>))
+
 #include "burst_firing_output_svc.h"
 
 #ifdef ESP32
@@ -85,10 +93,10 @@ void BurstFiringOutputControlService::zero_cross_isr()
     if (_burst_count > 0)
     {
         pulse_output();
-        _burst_count--;
+        _burst_count = _burst_count - 1;
     }
 
-    _zero_cross_count++;
+    _zero_cross_count = _zero_cross_count + 1;
 }
 
 void frt::BurstFiringOutputControlService::gracefulShutdown()
@@ -169,3 +177,5 @@ void BurstFiringOutputControlService::pulse_output()
 #elif defined(NRF52) || defined(NRF52840_XXAA)
 #endif
 }
+
+#endif
