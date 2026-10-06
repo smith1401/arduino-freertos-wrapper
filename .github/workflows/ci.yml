@@ -30,13 +30,22 @@ jobs:
         run: ctest --test-dir build --output-on-failure --repeat until-fail:5
 
   examples:
-    name: ${{ matrix.example }} (${{ matrix.env }})
+    name: ${{ matrix.example }} (${{ matrix.env }}, ${{ matrix.layout }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         env: [esp32, stm32, nrf52]
         example: [BasicTasks, PubSub, InputService, QueueSet]
+        # lib_deps: the wrapper is installed through lib_deps
+        # lib-dir:  the wrapper is copied into the project's lib/ folder (as a
+        #           git submodule would be); its library.json dependencies are
+        #           then resolved differently
+        layout: [lib_deps]
+        include:
+          - { env: esp32, example: BasicTasks, layout: lib-dir }
+          - { env: stm32, example: BasicTasks, layout: lib-dir }
+          - { env: nrf52, example: BasicTasks, layout: lib-dir }
         exclude:
           # Queue sets are disabled in the default STM32 / nRF52 FreeRTOS configs
           - env: stm32
@@ -49,7 +58,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: pio-${{ matrix.env }}-${{ hashFiles('library.json', 'test/platformio/platformio.ini') }}
+          key: pio-${{ matrix.env }}-${{ matrix.layout }}-${{ hashFiles('library.json', 'test/platformio/platformio.ini') }}
 
       - uses: actions/setup-python@v5
         with:
@@ -65,7 +74,12 @@ jobs:
           mkdir -p /tmp/proj/src
           cp examples/${{ matrix.example }}/${{ matrix.example }}.ino /tmp/proj/src/main.cpp
           cp test/platformio/platformio.ini /tmp/proj/
-          if [ "${{ matrix.env }}" != "stm32" ]; then
+          if [ "${{ matrix.layout }}" = "lib-dir" ]; then
+            # The wrapper lives in lib/ instead of lib_deps
+            mkdir -p /tmp/proj/lib
+            git archive --format=tar --prefix=arduino-freertos-wrapper/ HEAD | tar -x -C /tmp/proj/lib
+            sed -i '/symlink:/d' /tmp/proj/platformio.ini
+          elif [ "${{ matrix.env }}" != "stm32" ]; then
             # Worst case: STM32FreeRTOS is visible to the build (e.g. as a
             # global library). It must still not be picked up on this platform.
             git clone -q --depth 1 https://github.com/stm32duino/STM32FreeRTOS.git /tmp/proj/lib/STM32FreeRTOS

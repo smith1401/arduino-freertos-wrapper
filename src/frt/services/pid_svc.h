@@ -24,10 +24,9 @@ namespace frt
         /**
          *  @param calc_pid Currently IGNORED: the pointer is stored but never
          *         read, and the PID output is calculated on every
-         *         RECORD_CALC_PID event regardless of it. Code may rely on that
-         *         (e.g. a keep-warm mode that only sets a target temperature),
-         *         so honouring the flag would be a breaking change and is left
-         *         for a major release.
+         *         RECORD_CALC_PID event regardless of it. Honouring the flag
+         *         would change behaviour for existing users and is left for a
+         *         major release.
          */
         PIDService(float p, float i, float d, bool *calc_pid);
         virtual ~PIDService();

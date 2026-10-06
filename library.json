@@ -1,6 +1,6 @@
 {
     "name": "Arduino FreeRTOS Wrapper",
-    "version": "2.0.1",
+    "version": "2.1.0",
     "keywords": "rtos, freertos, timing, thread, task, queue, mutex, semaphore, timer, arduino, pub, sub",
     "description": "C++ wrapper for FreeRTOS on Arduino (ESP32, STM32, nRF52): tasks, queues, mutexes, semaphores, timers, event groups, message buffers, typed publish/subscribe and a thread safe logger",
     "authors": {
@@ -24,27 +24,12 @@
     },
     "dependencies": [
         {
-            "name": "BindArg",
-            "version": "https://github.com/openlab-vn-ua/BindArg.git",
-            "platforms": [
-                "nordicnrf52",
-                "ststm32"
-            ]
-        },
-        {
             "name": "CircularBuffer",
             "version": "https://github.com/rlogiacco/CircularBuffer.git",
             "platforms": [
                 "ststm32",
                 "espressif32",
                 "nordicnrf52"
-            ]
-        },
-        {
-            "name": "STM32FreeRTOS",
-            "version": "https://github.com/stm32duino/STM32FreeRTOS.git",
-            "platforms": [
-                "ststm32"
             ]
         }
     ],

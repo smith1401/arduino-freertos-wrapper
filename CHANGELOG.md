@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.1.0 - 2026-10-06
+
+### Changed
+
+* `library.json` no longer declares `STM32duino FreeRTOS` and BindArg as
+  dependencies. STM32 projects add `stm32duino/STM32duino FreeRTOS` to their
+  `lib_deps`, and STM32 / nRF52 projects that use the input or output
+  services add `https://github.com/openlab-vn-ua/BindArg.git`. See
+  *Installation* in the README.
+
+### Fixed
+
+* **`STM32duino FreeRTOS` still compiled into ESP32 / nRF52 builds with the
+  wrapper in the project's `lib/` folder**: PlatformIO does not apply a
+  dependency's `platforms` filter there, so the dependencies declared in
+  `library.json` were installed and built for every platform. They are
+  removed, see *Changed*.
+* The input / output services check for BindArg through a helper macro, so
+  the dependency scan (which can not evaluate `__has_include()`) finds a
+  BindArg from the project's `lib_deps`.
+* **Correction to the 2.0.1 notes**: PlatformIO matches libraries by their
+  manifest name, so a `lib_ignore` for this library must say
+  `STM32duino FreeRTOS`, not `STM32FreeRTOS`. Whether it can be removed
+  depends on the project: it is still needed if the project itself makes
+  `STM32duino FreeRTOS` visible to non-STM32 environments (e.g. in a shared
+  `lib_deps` or `lib/` folder).
+* CI also builds the examples with the wrapper in the project's `lib/`
+  folder.
+
 ## 2.0.1 - 2026-10-06
 
 ### Fixed

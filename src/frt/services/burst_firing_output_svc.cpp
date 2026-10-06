@@ -1,10 +1,19 @@
 #include <Arduino.h>
 
+// __has_include() hidden behind a macro: PlatformIO's dependency scan can not
+// evaluate __has_include() and would then not see (and not provide) BindArg,
+// it does know that __has_include is not defined for it and takes the 1.
+#if defined(__has_include)
+#define FRT_HAS_BINDARG __has_include(<BindArg.h>)
+#else
+#define FRT_HAS_BINDARG 1
+#endif
+
 // The Arduino IDE compiles every source file of a library: only build this
 // service where it is supported and its dependencies are installed, so it
 // does not break the build for everyone else.
 #if !(defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)) && \
-    (defined(ESP32) || __has_include(<BindArg.h>))
+    (defined(ESP32) || FRT_HAS_BINDARG)
 
 #include "burst_firing_output_svc.h"
 
