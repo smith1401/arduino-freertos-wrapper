@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <type_traits>
+#include <string.h>
 
 #include "frt.h"
 
@@ -10,18 +11,87 @@
 
 namespace frt
 {
+    namespace detail
+    {
+#if (INCLUDE_xTimerPendFunctionCall == 1) && (configUSE_TIMERS == 1)
+#ifndef configTIMER_SERVICE_TASK_NAME
+#define configTIMER_SERVICE_TASK_NAME "Tmr Svc"
+#endif
+
+        inline bool isTimerTask()
+        {
+#if (INCLUDE_xTimerGetTimerDaemonTaskHandle == 1)
+            return xTaskGetCurrentTaskHandle() == xTimerGetTimerDaemonTaskHandle();
+#else
+            return strcmp(pcTaskGetName(NULL), configTIMER_SERVICE_TASK_NAME) == 0;
+#endif
+        }
+
+        inline void giveSemaphore(void *sem, uint32_t)
+        {
+            xSemaphoreGive(static_cast<SemaphoreHandle_t>(sem));
+        }
+
+        /**
+         *  Block until the timer task has processed every command queued so far.
+         *  Timer commands are handled in order, so once a function pended
+         *  after them has run, they are done.
+         */
+        inline void flushTimerCommands()
+        {
+            if (FRT_IS_ISR() || xTaskGetSchedulerState() != taskSCHEDULER_RUNNING)
+                return;
+
+            // Called from a timer callback: we would wait for ourselves.
+            if (isTimerTask())
+                return;
+
+#if configSUPPORT_STATIC_ALLOCATION > 0
+            StaticSemaphore_t buf;
+            SemaphoreHandle_t done = xSemaphoreCreateBinaryStatic(&buf);
+#else
+            SemaphoreHandle_t done = xSemaphoreCreateBinary();
+            if (done == nullptr)
+                return;
+#endif
+
+            if (xTimerPendFunctionCall(giveSemaphore, done, 0, portMAX_DELAY) == pdPASS)
+                xSemaphoreTake(done, portMAX_DELAY);
+
+            vSemaphoreDelete(done);
+        }
+#define FRT_TIMER_CAN_FLUSH 1
+#else
+        inline void flushTimerCommands() {}
+#define FRT_TIMER_CAN_FLUSH 0
+#endif
+    }
+
+    /**
+     *  Software timer. Derive from it and implement run(), or use
+     *  frt::CallbackTimer to pass a function / lambda.
+     *
+     *  run() is executed in the context of the FreeRTOS timer task: keep it
+     *  short and never block in it.
+     *
+     *  All methods can be called from tasks and ISRs. Command timeouts are
+     *  in ticks (they are directly passed to FreeRTOS).
+     *
+     *  Do not destroy a timer from inside its own run() method. If you derive
+     *  from Timer, call destroy() in your destructor so run() cannot be called
+     *  on a partly destroyed object.
+     */
     class Timer
     {
     public:
         /**
          *  Construct a named timer.
          *  Timers are not active after they are created, you need to
-         *  activate them via Start, Reset, etc.
+         *  activate them via start(), reset(), etc.
          *
-         *  @throws TimerCreateException
          *  @param TimerName Name of the timer for debug.
-         *  @param PeriodInTicks When does the timer expire and run your Run()
-         *         method.
+         *  @param PeriodInTicks When does the timer expire and run your run()
+         *         method. Use pdMS_TO_TICKS() to convert from milliseconds.
          *  @param Periodic true if the timer expires every PeriodInTicks.
          *         false if this is a one shot timer.
          */
@@ -29,32 +99,13 @@ namespace frt
               TickType_t PeriodInTicks,
               bool Periodic = true)
         {
-            // TODO: change to using msecs outside and convert inside
-            // const TickType_t ticks = pdMS_TO_TICKS(msecs);
-#if configSUPPORT_STATIC_ALLOCATION > 0
-            handle = xTimerCreateStatic(TimerName,
-                                        PeriodInTicks,
-                                        Periodic ? pdTRUE : pdFALSE,
-                                        this,
-                                        TimerCallbackFunctionAdapter,
-                                        &buffer);
-#else
-            handle = xTimerCreate(TimerName,
-                                  PeriodInTicks,
-                                  Periodic ? pdTRUE : pdFALSE,
-                                  this,
-                                  TimerCallbackFunctionAdapter);
-#endif
-            assert(handle != nullptr);
+            create(TimerName, PeriodInTicks, Periodic);
         }
 
         /**
          *  Construct an unnamed timer.
-         *  Timers are not active after they are created, you need to
-         *  activate them via Start, Reset, etc.
          *
-         *  @throws TimerCreateException
-         *  @param PeriodInTicks When does the timer expire and run your Run()
+         *  @param PeriodInTicks When does the timer expire and run your run()
          *         method.
          *  @param Periodic true if the timer expires every PeriodInTicks.
          *         false if this is a one shot timer.
@@ -62,150 +113,139 @@ namespace frt
         Timer(TickType_t PeriodInTicks,
               bool Periodic = true)
         {
-            // const TickType_t ticks = pdMS_TO_TICKS(msecs);
-#if configSUPPORT_STATIC_ALLOCATION > 0
-            handle = xTimerCreateStatic(NULL,
-                                        PeriodInTicks,
-                                        Periodic ? pdTRUE : pdFALSE,
-                                        this,
-                                        TimerCallbackFunctionAdapter,
-                                        &buffer);
-#else
-            handle = xTimerCreate(NULL,
-                                  PeriodInTicks,
-                                  Periodic ? pdTRUE : pdFALSE,
-                                  this,
-                                  TimerCallbackFunctionAdapter);
-#endif
-            assert(handle != nullptr);
+            create(NULL, PeriodInTicks, Periodic);
         }
 
-        /**
-         *  Destructor
-         */
         virtual ~Timer()
         {
-            xTimerDelete(handle, portMAX_DELAY);
+            destroy();
         }
+
+        Timer(const Timer &other) = delete;
+        Timer &operator=(const Timer &other) = delete;
 
         /**
          *  Is the timer currently active?
          *
          *  @return true if the timer is active, false otherwise.
          */
-        bool isActive()
+        bool isActive() const
         {
-            return xTimerIsTimerActive(handle) == pdFALSE ? false : true;
+            return xTimerIsTimerActive(handle) != pdFALSE;
         }
 
         /**
          *  Start a timer. This changes the state to active.
          *
-         *  @param CmdTimeout How long to wait to send this command to the
-         *         timer code.
-         *  @returns true if this command will be sent to the timer code,
+         *  @param CmdTimeout How long to wait (ticks) to send this command to the
+         *         timer task.
+         *  @returns true if this command will be sent to the timer task,
          *           false if it will not (i.e. timeout).
          */
         bool start(TickType_t CmdTimeout = portMAX_DELAY)
         {
-            bool success = false;
             if (FRT_IS_ISR())
             {
                 BaseType_t taskWoken = pdFALSE;
-                success = xTimerStartFromISR(handle, &taskWoken);
+                const bool success = xTimerStartFromISR(handle, &taskWoken) == pdPASS;
 
                 if (success)
                     detail::yieldFromIsr(taskWoken);
-            }
-            else
-            {
-                success = xTimerStart(handle, CmdTimeout);
+
+                return success;
             }
 
-            return success;
+            return xTimerStart(handle, CmdTimeout) == pdPASS;
         }
 
         /**
          *  Stop a timer. This changes the state to inactive.
-         *
-         *  @param CmdTimeout How long to wait to send this command to the
-         *         timer code.
-         *  @returns true if this command will be sent to the timer code,
-         *           false if it will not (i.e. timeout).
          */
         bool stop(TickType_t CmdTimeout = portMAX_DELAY)
         {
-            bool success = false;
             if (FRT_IS_ISR())
             {
                 BaseType_t taskWoken = pdFALSE;
-                success = xTimerStopFromISR(handle, &taskWoken);
+                const bool success = xTimerStopFromISR(handle, &taskWoken) == pdPASS;
 
                 if (success)
                     detail::yieldFromIsr(taskWoken);
-            }
-            else
-            {
-                success = xTimerStop(handle, CmdTimeout);
+
+                return success;
             }
 
-            return success;
+            return xTimerStop(handle, CmdTimeout) == pdPASS;
         }
 
         /**
-         *  Reset a timer. This changes the state to active.
-         *
-         *  @param CmdTimeout How long to wait to send this command to the
-         *         timer code.
-         *  @returns true if this command will be sent to the timer code,
-         *           false if it will not (i.e. timeout).
+         *  Reset (restart) a timer. This changes the state to active.
          */
         bool reset(TickType_t CmdTimeout = portMAX_DELAY)
         {
-            bool success = false;
             if (FRT_IS_ISR())
             {
                 BaseType_t taskWoken = pdFALSE;
-                success = xTimerResetFromISR(handle, &taskWoken);
+                const bool success = xTimerResetFromISR(handle, &taskWoken) == pdPASS;
 
                 if (success)
                     detail::yieldFromIsr(taskWoken);
-            }
-            else
-            {
-                success = xTimerReset(handle, CmdTimeout);
+
+                return success;
             }
 
-            return success;
+            return xTimerReset(handle, CmdTimeout) == pdPASS;
         }
 
         /**
-         *  Change a timer's period.
+         *  Change a timer's period. This also starts a dormant timer.
          *
          *  @param NewPeriod The period in ticks.
          *  @param CmdTimeout How long to wait to send this command to the
-         *         timer code.
-         *  @returns true if this command will be sent to the timer code,
-         *           false if it will not (i.e. timeout).
+         *         timer task.
          */
         bool setPeriod(TickType_t NewPeriod,
                        TickType_t CmdTimeout = portMAX_DELAY)
         {
-            bool success = false;
             if (FRT_IS_ISR())
             {
                 BaseType_t taskWoken = pdFALSE;
-                success = xTimerChangePeriodFromISR(handle, NewPeriod, &taskWoken);
-                
+                const bool success = xTimerChangePeriodFromISR(handle, NewPeriod, &taskWoken) == pdPASS;
+
                 if (success)
                     detail::yieldFromIsr(taskWoken);
-            }
-            else
-            {
-                success = xTimerChangePeriod(handle, NewPeriod, CmdTimeout);
+
+                return success;
             }
 
-            return success;
+            return xTimerChangePeriod(handle, NewPeriod, CmdTimeout) == pdPASS;
+        }
+
+        /** Change the period in milliseconds. This also starts a dormant timer. */
+        bool setPeriodMs(unsigned int msecs, TickType_t CmdTimeout = portMAX_DELAY)
+        {
+            return setPeriod(detail::msToTicks(msecs), CmdTimeout);
+        }
+
+        /** Current period in ticks. */
+        TickType_t period() const
+        {
+            return xTimerGetPeriod(handle);
+        }
+
+        /** Tick count at which the timer expires next (only valid if active). */
+        TickType_t expiryTime() const
+        {
+            return xTimerGetExpiryTime(handle);
+        }
+
+        const char *name() const
+        {
+            return pcTimerGetName(handle);
+        }
+
+        TimerHandle_t getHandle() const
+        {
+            return handle;
         }
 
 #if (INCLUDE_xTimerGetTimerDaemonTaskHandle == 1)
@@ -221,15 +261,6 @@ namespace frt
         }
 #endif
 
-        /////////////////////////////////////////////////////////////////////////
-        //
-        //  Protected API
-        //  Available from inside your Thread implementation.
-        //  You should make sure that you are only calling these methods
-        //  from within your Run() method, or that your Run() method is on the
-        //  callstack.
-        //
-        /////////////////////////////////////////////////////////////////////////
     protected:
         /**
          *  Implementation of your actual timer code.
@@ -237,26 +268,50 @@ namespace frt
          */
         virtual void run() = 0;
 
-        /////////////////////////////////////////////////////////////////////////
-        //
-        //  Private API
-        //  The internals of this wrapper class.
-        //
-        /////////////////////////////////////////////////////////////////////////
-    private:
         /**
-         *  Reference to the underlying timer handle.
+         *  Delete the FreeRTOS timer and wait until the timer task has handled
+         *  that. Afterwards run() is guaranteed not to be called anymore, and
+         *  the timer task no longer touches this object (the callback context
+         *  and, with static allocation, the timer buffer live inside it).
          */
+        void destroy()
+        {
+            if (handle == nullptr)
+                return;
+
+            xTimerDelete(handle, portMAX_DELAY);
+            handle = nullptr;
+            detail::flushTimerCommands();
+        }
+
+    private:
         TimerHandle_t handle;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         StaticTimer_t buffer;
 #endif
 
+        void create(const char *const name, TickType_t period, bool periodic)
+        {
+#if configSUPPORT_STATIC_ALLOCATION > 0
+            handle = xTimerCreateStatic(name,
+                                        period,
+                                        periodic ? pdTRUE : pdFALSE,
+                                        this,
+                                        TimerCallbackFunctionAdapter,
+                                        &buffer);
+#else
+            handle = xTimerCreate(name,
+                                  period,
+                                  periodic ? pdTRUE : pdFALSE,
+                                  this,
+                                  TimerCallbackFunctionAdapter);
+#endif
+            configASSERT(handle);
+        }
+
         /**
-         *  Adapter function that allows you to write a class
-         *  specific Run() function that interfaces with FreeRTOS.
-         *  Look at the implementation of the constructors and this
-         *  code to see how the interface between C and C++ is performed.
+         *  Adapter that forwards the C callback to the virtual run() method of
+         *  the timer object stored in the timer ID.
          */
         static void TimerCallbackFunctionAdapter(TimerHandle_t xTimer)
         {
@@ -265,6 +320,52 @@ namespace frt
         }
     };
 
+    /**
+     *  Timer that calls a function, functor or lambda.
+     *
+     *  @code
+     *  frt::CallbackTimer blink("blink", pdMS_TO_TICKS(500), true, [] {
+     *      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+     *  });
+     *  blink.start();
+     *  @endcode
+     */
+    class CallbackTimer final : public Timer
+    {
+    public:
+        typedef std::function<void()> Callback;
+
+        CallbackTimer(const char *const TimerName,
+                      TickType_t PeriodInTicks,
+                      bool Periodic,
+                      Callback callback) : Timer(TimerName, PeriodInTicks, Periodic),
+                                           m_callback(callback)
+        {
+        }
+
+        CallbackTimer(TickType_t PeriodInTicks,
+                      bool Periodic,
+                      Callback callback) : Timer(PeriodInTicks, Periodic),
+                                           m_callback(callback)
+        {
+        }
+
+        ~CallbackTimer()
+        {
+            // Before m_callback is destroyed
+            destroy();
+        }
+
+    protected:
+        void run() override
+        {
+            if (m_callback)
+                m_callback();
+        }
+
+    private:
+        Callback m_callback;
+    };
 }
 
 #endif // __FRT_TIMER_H__

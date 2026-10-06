@@ -39,6 +39,8 @@ public:
     operator bool();
 
 private:
+    static const uint8_t NO_LED = 0xFF;
+
     void error_handler();
     uint8_t m_conn_led_pin;
     IPAddress m_server_ip;

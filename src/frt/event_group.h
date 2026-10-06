@@ -2,10 +2,23 @@
 #define __FRT_EVENT_GROUP_H__
 
 #include "frt.h"
-#include "log.h"
+
+#if (configUSE_TRACE_FACILITY == 1) && (INCLUDE_xTimerPendFunctionCall == 1) && (configUSE_TIMERS == 1)
+#define FRT_HAS_EVENT_GROUP_SET_BITS_FROM_ISR 1
+#else
+#define FRT_HAS_EVENT_GROUP_SET_BITS_FROM_ISR 0
+#endif
+
 namespace frt
 {
-
+    /**
+     *  Event group. Timeouts are in milliseconds: 0 does not block,
+     *  frt::FOREVER blocks until the condition is met.
+     *
+     *  The wait functions return the value of the event bits at the time the
+     *  call returned. Check those against the bits you waited for to know
+     *  whether the wait succeeded or timed out.
+     */
     class EventGroup final
     {
     public:
@@ -25,29 +38,37 @@ namespace frt
             vEventGroupDelete(handle);
         }
 
+        EventGroup(const EventGroup &other) = delete;
+        EventGroup &operator=(const EventGroup &other) = delete;
+
+        /**
+         *  Set bits. From a task this returns the bits after setting.
+         *  From an ISR the request is deferred to the timer task, the return
+         *  value is then non-zero if the request was queued successfully.
+         *  Setting bits from an ISR needs configUSE_TRACE_FACILITY,
+         *  INCLUDE_xTimerPendFunctionCall and configUSE_TIMERS enabled.
+         */
         EventBits_t setBits(const EventBits_t bitsToSet)
         {
             if (FRT_IS_ISR())
             {
-                EventBits_t bitsSet;
-#if ((configUSE_TRACE_FACILITY == 1) && (INCLUDE_xTimerPendFunctionCall == 1) && (configUSE_TIMERS == 1))
+#if FRT_HAS_EVENT_GROUP_SET_BITS_FROM_ISR
                 BaseType_t taskWoken = pdFALSE;
-                bitsSet = xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken);
+                if (xEventGroupSetBitsFromISR(handle, bitsToSet, &taskWoken) != pdPASS)
+                    return 0;
 
-                if (bitsSet != pdFAIL)
-                {
-                    detail::yieldFromIsr(taskWoken);
-                }
+                detail::yieldFromIsr(taskWoken);
+                return bitsToSet;
 #else
-#warning "xEventGroupSetBitsFromISR not implemented for this platform"
+                configASSERT(false && "xEventGroupSetBitsFromISR is not available with this FreeRTOS config");
+                return 0;
 #endif
-                return bitsSet;
             }
-            else
-                return xEventGroupSetBits(handle, bitsToSet);
+
+            return xEventGroupSetBits(handle, bitsToSet);
         }
 
-        EventBits_t getBits()
+        EventBits_t getBits() const
         {
             if (FRT_IS_ISR())
                 return xEventGroupGetBitsFromISR(handle);
@@ -55,57 +76,81 @@ namespace frt
                 return xEventGroupGetBits(handle);
         }
 
+        /**
+         *  Clear bits. Returns the bits before they were cleared (task context).
+         *  From an ISR the request is deferred to the timer task.
+         */
         EventBits_t clearBits(const EventBits_t bitsToClear)
         {
             if (FRT_IS_ISR())
-                return xEventGroupClearBitsFromISR(handle, bitsToClear);
-            else
-                return xEventGroupClearBits(handle, bitsToClear);
+            {
+#if (INCLUDE_xTimerPendFunctionCall == 1) && (configUSE_TIMERS == 1)
+                const EventBits_t before = xEventGroupGetBitsFromISR(handle);
+                xEventGroupClearBitsFromISR(handle, bitsToClear);
+                return before;
+#else
+                configASSERT(false && "xEventGroupClearBitsFromISR is not available with this FreeRTOS config");
+                return 0;
+#endif
+            }
+
+            return xEventGroupClearBits(handle, bitsToClear);
         }
 
-        EventBits_t waitBits(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits)
+        EventBits_t waitBits(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits, unsigned int msecs = FOREVER)
         {
-            return xEventGroupWaitBits(handle, bitsToWaitFor, clearOnExit, waitForAllBits, portMAX_DELAY);
-        }
-
-        EventBits_t waitBits(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits, unsigned int msecs)
-        {
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
-
-            return xEventGroupWaitBits(handle, bitsToWaitFor, clearOnExit, waitForAllBits, max(1U, (unsigned int)ticks));
+            return waitBitsTicks(bitsToWaitFor, clearOnExit, waitForAllBits, detail::msToTicks(msecs));
         }
 
         EventBits_t waitBits(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits, unsigned int msecs, unsigned int &remainder)
         {
-            msecs += remainder;
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
-            // remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            const EventBits_t bits = waitBitsTicks(bitsToWaitFor, clearOnExit, waitForAllBits, detail::msToTicksCarry(msecs, remainder));
+            const bool success = waitForAllBits ? (bits & bitsToWaitFor) == bitsToWaitFor
+                                                : (bits & bitsToWaitFor) != 0;
+            if (success)
+                remainder = 0;
 
-            return xEventGroupWaitBits(handle, bitsToWaitFor, clearOnExit, waitForAllBits, max(1U, (unsigned int)ticks));
+            return bits;
         }
 
-        EventBits_t sync(const EventBits_t bitsToSet, const EventBits_t bitsToWaitFor)
+        /** Wait until any of the given bits is set. */
+        bool waitAny(const EventBits_t bits, unsigned int msecs = FOREVER, bool clearOnExit = true)
         {
-            return xEventGroupSync(handle, bitsToSet, bitsToWaitFor, portMAX_DELAY);
+            return (waitBits(bits, clearOnExit, false, msecs) & bits) != 0;
         }
 
-        EventBits_t sync(const EventBits_t bitsToSet, const EventBits_t bitsToWaitFor, unsigned int msecs)
+        /** Wait until all of the given bits are set. */
+        bool waitAll(const EventBits_t bits, unsigned int msecs = FOREVER, bool clearOnExit = true)
         {
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
+            return (waitBits(bits, clearOnExit, true, msecs) & bits) == bits;
+        }
 
-            return xEventGroupSync(handle, bitsToSet, bitsToWaitFor, max(1U, (unsigned int)ticks));
+        /**
+         *  Rendezvous: atomically set bitsToSet and wait for bitsToWaitFor.
+         */
+        EventBits_t sync(const EventBits_t bitsToSet, const EventBits_t bitsToWaitFor, unsigned int msecs = FOREVER)
+        {
+            configASSERT(!FRT_IS_ISR());
+            return xEventGroupSync(handle, bitsToSet, bitsToWaitFor, detail::msToTicks(msecs));
         }
 
         EventBits_t sync(const EventBits_t bitsToSet, const EventBits_t bitsToWaitFor, unsigned int msecs, unsigned int &remainder)
         {
-            msecs += remainder;
-            const TickType_t ticks = pdMS_TO_TICKS(msecs);
-            // remainder = msecs % portTICK_PERIOD_MS * static_cast<bool>(ticks);
+            configASSERT(!FRT_IS_ISR());
+            const EventBits_t bits = xEventGroupSync(handle, bitsToSet, bitsToWaitFor, detail::msToTicksCarry(msecs, remainder));
+            if ((bits & bitsToWaitFor) == bitsToWaitFor)
+                remainder = 0;
 
-            return xEventGroupSync(handle, bitsToSet, bitsToWaitFor, max(1U, (unsigned int)ticks));
+            return bits;
         }
 
     private:
+        EventBits_t waitBitsTicks(const EventBits_t bitsToWaitFor, const bool clearOnExit, const bool waitForAllBits, TickType_t ticks)
+        {
+            configASSERT(!FRT_IS_ISR());
+            return xEventGroupWaitBits(handle, bitsToWaitFor, clearOnExit ? pdTRUE : pdFALSE, waitForAllBits ? pdTRUE : pdFALSE, ticks);
+        }
+
         EventGroupHandle_t handle;
 #if configSUPPORT_STATIC_ALLOCATION > 0
         StaticEventGroup_t buffer;

@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: library.json, library.properties and CHANGELOG.md agree
+        run: python3 scripts/version.py check
+
+  host-tests:
+    name: Host tests (FreeRTOS POSIX port, ASan/UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S test/host -B build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        # Repeat to catch timing dependent problems
+        run: ctest --test-dir build --output-on-failure --repeat until-fail:5
+
+  examples:
+    name: ${{ matrix.example }} (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [esp32, stm32, nrf52]
+        example: [BasicTasks, PubSub, InputService, QueueSet]
+        exclude:
+          # Queue sets are disabled in the default STM32 / nRF52 FreeRTOS configs
+          - env: stm32
+            example: QueueSet
+          - env: nrf52
+            example: QueueSet
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ matrix.env }}-${{ hashFiles('library.json', 'test/platformio/platformio.ini') }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build
+        env:
+          FRT_LIB_DIR: ${{ github.workspace }}
+        run: |
+          mkdir -p /tmp/proj/src
+          cp examples/${{ matrix.example }}/${{ matrix.example }}.ino /tmp/proj/src/main.cpp
+          cp test/platformio/platformio.ini /tmp/proj/
+          pio run -d /tmp/proj -e ${{ matrix.env }}

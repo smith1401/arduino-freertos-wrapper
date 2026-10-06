@@ -1,53 +1,99 @@
 #include "manager.h"
+#include "task.h"
 
 using namespace frt;
 
-Manager *Manager::instance{nullptr};
-Mutex Manager::mutex;
-// std::map<size_t, IPublisher *> Manager::publishers;
-// std::map<size_t, ITask *> Manager::tasks;
-std::unordered_map<size_t, IPublisher *> Manager::publishers;
-std::unordered_map<size_t, ITask *> Manager::tasks;
-
 Manager *Manager::getInstance()
 {
-    LockGuard lock(mutex);
-
-    if (instance == nullptr)
-    {
-        instance = new Manager();
-    }
-    return instance;
+    // Constructed on first use, so it is safe to use from other static
+    // initializers. The first call should happen before tasks run
+    // concurrently (e.g. in setup()), which Task::start() takes care of.
+    static Manager instance;
+    return &instance;
 }
 
-size_t Manager::hash_cstr_gnu(const char *s)
+IPublisher *Manager::findPublisherLocked(const char *topic) const
 {
-    const size_t seed = 0;
-    return std::_Hash_bytes(s, std::strlen(s), seed);
+    for (IPublisher *pub : _publishers)
+    {
+        if (strncmp(pub->topic(), topic, FRT_TOPIC_MAX_LEN - 1) == 0)
+            return pub;
+    }
+
+    return nullptr;
 }
 
 bool Manager::removePublisher(const char *topic)
 {
-    size_t key = hash_cstr_gnu(topic);
-    size_t deleted_pubs = publishers.erase(key);
+    LockGuard lock(_mutex);
 
-    return deleted_pubs > 0;
+    for (auto it = _publishers.begin(); it != _publishers.end(); ++it)
+    {
+        if (strncmp((*it)->topic(), topic, FRT_TOPIC_MAX_LEN - 1) == 0)
+        {
+            if ((*it)->subscriberCount() > 0)
+                return false;
+
+            delete *it;
+            _publishers.erase(it);
+            return true;
+        }
+    }
+
+    return false;
 }
 
-bool frt::Manager::addTask(ITask *t, const char *name)
+size_t Manager::topicCount()
 {
-    size_t key = hash_cstr_gnu(name);
-
-    // Try to emplace this publisher
-    auto ret = tasks.emplace(key, t);
-
-    return ret.second;
+    LockGuard lock(_mutex);
+    return _publishers.size();
 }
 
-bool frt::Manager::removeTask(const char *name)
+bool Manager::addTask(ITask *t)
 {
-    size_t key = hash_cstr_gnu(name);
-    size_t deleted_tasks = tasks.erase(key);
+    LockGuard lock(_mutex);
 
-    return deleted_tasks > 0;
+    for (ITask *existing : _tasks)
+    {
+        if (existing == t)
+            return false;
+    }
+
+    _tasks.push_back(t);
+    return true;
+}
+
+bool Manager::removeTask(ITask *t)
+{
+    LockGuard lock(_mutex);
+
+    for (auto it = _tasks.begin(); it != _tasks.end(); ++it)
+    {
+        if (*it == t)
+        {
+            _tasks.erase(it);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::vector<ITask *> Manager::getTasks()
+{
+    LockGuard lock(_mutex);
+    return _tasks;
+}
+
+ITask *Manager::findTask(const char *name)
+{
+    LockGuard lock(_mutex);
+
+    for (ITask *t : _tasks)
+    {
+        if (strncmp(t->name(), name, configMAX_TASK_NAME_LEN) == 0)
+            return t;
+    }
+
+    return nullptr;
 }

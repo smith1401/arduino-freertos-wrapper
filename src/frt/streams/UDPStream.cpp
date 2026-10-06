@@ -1,11 +1,19 @@
-#ifdef ESP32
+#include <Arduino.h>
+
+// Needs the CircularBuffer library, skip it if that is not installed
+#if defined(ESP32) && __has_include(<CircularBuffer.hpp>)
 #include "UDPStream.h"
 #include <stdarg.h>
 
 UDPStream::UDPStream(int connLedPin)
 {
+#ifdef LED_BUILTIN
     m_conn_led_pin = connLedPin < 0 ? LED_BUILTIN : connLedPin;
-    pinMode(m_conn_led_pin, OUTPUT);
+#else
+    m_conn_led_pin = connLedPin < 0 ? NO_LED : connLedPin;
+#endif
+    if (m_conn_led_pin != NO_LED)
+        pinMode(m_conn_led_pin, OUTPUT);
     // m_packet_queue = xQueueCreate(10, sizeof(AsyncUDPPacket));
 }
 
@@ -158,9 +166,12 @@ void UDPStream::error_handler()
 
     while (1)
     {
-        digitalWrite(m_conn_led_pin, HIGH);
-        delay(100);
-        digitalWrite(m_conn_led_pin, LOW);
+        if (m_conn_led_pin != NO_LED)
+        {
+            digitalWrite(m_conn_led_pin, HIGH);
+            delay(100);
+            digitalWrite(m_conn_led_pin, LOW);
+        }
         delay(100);
     }
 }
