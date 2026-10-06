@@ -1,6 +1,6 @@
 {
     "name": "Arduino FreeRTOS Wrapper",
-    "version": "2.0.1",
+    "version": "2.1.0",
     "keywords": "rtos, freertos, timing, thread, task, queue, mutex, semaphore, timer, arduino, pub, sub",
     "description": "C++ wrapper for FreeRTOS on Arduino (ESP32, STM32, nRF52): tasks, queues, mutexes, semaphores, timers, event groups, message buffers, typed publish/subscribe and a thread safe logger",
     "authors": {
