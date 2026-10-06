@@ -35,7 +35,11 @@ protected:
     {
         frt::msgs::Temperature msg;
         msg.timestamp = millis();
-        msg.temperature = 20.0f + (random(0, 100) / 10.0f);
+        // Simulated sensor: ramps between 20.0 and 29.9 C. (random() is avoided
+        // on purpose, with PlatformIO on STM32 it pulls in unresolved stdio
+        // syscalls.)
+        m_step = (m_step + 1) % 100;
+        msg.temperature = 20.0f + m_step / 10.0f;
 
         const size_t receivers = m_pub->publish(msg);
         FRT_LOG_DEBUG("Published %d.%d C to %u subscribers", whole(msg.temperature), tenth(msg.temperature), (unsigned)receivers);
@@ -47,6 +51,7 @@ protected:
 private:
     frt::Publisher<frt::msgs::Temperature> *m_pub = nullptr;
     TickType_t m_lastWake = 0;
+    unsigned int m_step = 0;
 };
 
 class LoggerTask final : public frt::Task<LoggerTask, 2048>
