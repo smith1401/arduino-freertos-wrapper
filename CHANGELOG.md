@@ -69,7 +69,9 @@
   returns the number of receivers.
 * `Log`: `unregisterStream()`, `setQuiet()`, printf format checking.
 * `library.properties` for the Arduino IDE, examples in Arduino sketch layout.
+* Release workflow (tag, GitHub release with notes and Arduino IDE ZIP,
+  optional PlatformIO registry publishing) and `scripts/version.py`.
 
 ### Changed
 
-See *Migrating from 1.x* in the README.
+See [Migrating from 1.x](https://github.com/smith1401/arduino-freertos-wrapper/blob/v2.0.0/README.md#migrating-from-1x) in the README.

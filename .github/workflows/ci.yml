@@ -5,6 +5,14 @@ on:
   pull_request:
 
 jobs:
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: library.json, library.properties and CHANGELOG.md agree
+        run: python3 scripts/version.py check
+
   host-tests:
     name: Host tests (FreeRTOS POSIX port, ASan/UBSan)
     runs-on: ubuntu-latest

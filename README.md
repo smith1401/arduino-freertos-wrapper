@@ -244,6 +244,36 @@ ctest --test-dir build --output-on-failure
 CI (`.github/workflows/ci.yml`) runs these tests and builds every example for
 ESP32, STM32 and nRF52 with PlatformIO.
 
+## Versioning and releases
+
+The library follows [semantic versioning](https://semver.org): breaking API
+changes increase the major version, new features the minor version, fixes the
+patch version. Every release is a `vX.Y.Z` tag with a
+[GitHub release](https://github.com/smith1401/arduino-freertos-wrapper/releases)
+that carries the changelog entry and a ZIP for the Arduino IDE.
+
+The version is stored in `library.json`, `library.properties` and as a
+`## X.Y.Z` heading in `CHANGELOG.md`; CI checks that they agree.
+`scripts/version.py` keeps them in sync.
+
+To release a new version:
+
+1. Write the changes under `## Unreleased` in `CHANGELOG.md` while working.
+2. Set the version (turns `## Unreleased` into `## X.Y.Z - date`) and merge
+   the change into the default branch:
+   ```sh
+   python3 scripts/version.py set X.Y.Z
+   ```
+3. In GitHub, open *Actions → Release → Run workflow* and enter `X.Y.Z`.
+   The workflow checks the version, runs the tests, tags the default branch
+   as `vX.Y.Z` and publishes the release. Pushing the tag yourself
+   (`git tag vX.Y.Z && git push origin vX.Y.Z`) does the same.
+
+With a `PLATFORMIO_AUTH_TOKEN` repository secret the release is also
+published to the PlatformIO registry. Once the library is registered in the
+[Arduino Library Manager](https://github.com/arduino/library-registry), new
+tags are picked up there automatically.
+
 ## Migrating from 1.x
 
 * `Publisher<T, QUEUE_SIZE>` is now `Publisher<T>`. The queue size belongs to

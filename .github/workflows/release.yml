@@ -1,0 +1,105 @@
+name: Release
+
+# Two ways to release version X.Y.Z (see "Releasing" in the README):
+#  - Actions -> Release -> "Run workflow" with version X.Y.Z: tags the head
+#    of the default branch as vX.Y.Z and publishes the release
+#  - or push a tag yourself: git tag vX.Y.Z && git push origin vX.Y.Z
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (X.Y.Z), must match library.json, library.properties and CHANGELOG.md"
+        required: true
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            raw="${INPUT_VERSION}"
+          else
+            raw="${GITHUB_REF_NAME}"
+          fi
+          version="${raw#v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Check version
+        run: python3 scripts/version.py check "${{ steps.version.outputs.version }}"
+
+      - name: Check that the tag does not exist yet
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null; then
+            echo "::error::Tag ${{ steps.version.outputs.tag }} already exists"
+            exit 1
+          fi
+
+      - name: Run host tests
+        run: |
+          cmake -S test/host -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j
+          ctest --test-dir build --output-on-failure
+
+      - name: Create tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Build release archive
+        run: |
+          name="arduino-freertos-wrapper-${{ steps.version.outputs.version }}"
+          # export-ignore in .gitattributes leaves out tests and tooling;
+          # the top level folder holds library.properties, as the Arduino IDE expects
+          git archive --format=zip --prefix="arduino-freertos-wrapper/" -o "${name}.zip" "${{ steps.version.outputs.tag }}"
+          echo "ARCHIVE=${name}.zip" >> "$GITHUB_ENV"
+
+      - name: Extract release notes
+        run: python3 scripts/version.py notes "${{ steps.version.outputs.version }}" > release-notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "${{ steps.version.outputs.version }}" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "${{ steps.version.outputs.tag }}" "${ARCHIVE}" \
+            --title "${{ steps.version.outputs.version }}" \
+            --notes-file release-notes.md \
+            --verify-tag ${prerelease}
+
+      - name: Publish to the PlatformIO registry
+        # Optional: only runs when the PLATFORMIO_AUTH_TOKEN secret is set
+        # (create one with "pio account token")
+        env:
+          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+        run: |
+          if [ -z "${PLATFORMIO_AUTH_TOKEN}" ]; then
+            echo "PLATFORMIO_AUTH_TOKEN is not set, skipping"
+            exit 0
+          fi
+          pip install platformio
+          pio pkg publish --type library --no-interactive "${ARCHIVE}"
