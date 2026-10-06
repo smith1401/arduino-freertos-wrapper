@@ -41,14 +41,6 @@
             ]
         },
         {
-            "owner": "me-no-dev",
-            "name": "AsyncTCP",
-            "version": "*",
-            "platforms": [
-                "espressif32"
-            ]
-        },
-        {
             "name": "STM32FreeRTOS",
             "version": "https://github.com/stm32duino/STM32FreeRTOS.git",
             "platforms": [

@@ -11,6 +11,8 @@
   detected by the series macros from the compiler flags (`STM32F4xx`, ...),
   which the scan knows, and on nRF52 the core's FreeRTOS headers (same file
   names as STM32FreeRTOS') are included so the scan can not mistake them.
+  On ESP32 it also came in through AsyncTCP, an unused dependency (the
+  `UDPStream` uses AsyncUDP from the arduino-esp32 core), which is removed.
   A `lib_ignore = STM32FreeRTOS` workaround can be removed. CI now builds
   ESP32 and nRF52 with STM32FreeRTOS visible and fails if it is used.
 * The migration guide in the README was missing breaking changes made during

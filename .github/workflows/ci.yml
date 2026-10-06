@@ -80,7 +80,7 @@ jobs:
         if: matrix.env != 'stm32'
         run: |
           # Installing it is fine, using it is not
-          if grep -nE '\|-- STM32duino FreeRTOS|Compiling .*STM32FreeRTOS|STM32FreeRTOS/.*\.o$' /tmp/build.log; then
+          if grep -nE '\|-- STM32duino FreeRTOS|lib[0-9a-f]+/STM32FreeRTOS' /tmp/build.log; then
             echo "::error::STM32FreeRTOS was compiled for ${{ matrix.env }}"
             exit 1
           fi
