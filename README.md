@@ -80,6 +80,9 @@ lib_deps = https://github.com/smith1401/arduino-freertos-wrapper.git
 lib_ldf_mode = deep+
 ```
 
+On nRF52 also add `Adafruit TinyUSB Library` to `lib_deps`, otherwise
+PlatformIO does not link the USB `Serial` of the Adafruit core.
+
 **Arduino IDE**: install the ZIP of this repository (Sketch → Include Library →
 Add .ZIP Library). On STM32 also install *STM32duino FreeRTOS*. The optional
 services need [BindArg](https://github.com/openlab-vn-ua/BindArg) (input and

@@ -17,6 +17,11 @@
 
 #define TOPIC_TEMPERATURE "temperature"
 
+// printf("%f") needs extra linker options on several cores, so temperatures
+// are logged with integers: "%d.%d" with whole(t), tenth(t)
+static int whole(float value) { return static_cast<int>(value); }
+static int tenth(float value) { return abs(static_cast<int>(value * 10.0f)) % 10; }
+
 class SensorTask final : public frt::Task<SensorTask, 2048>
 {
 protected:
@@ -33,7 +38,7 @@ protected:
         msg.temperature = 20.0f + (random(0, 100) / 10.0f);
 
         const size_t receivers = m_pub->publish(msg);
-        FRT_LOG_DEBUG("Published %.1f C to %u subscribers", msg.temperature, (unsigned)receivers);
+        FRT_LOG_DEBUG("Published %d.%d C to %u subscribers", whole(msg.temperature), tenth(msg.temperature), (unsigned)receivers);
 
         msleepUntil(m_lastWake, 200);
         return true;
@@ -57,7 +62,7 @@ protected:
         frt::msgs::Temperature msg;
 
         if (m_sub->receive(msg))
-            FRT_LOG_INFO("[logger] %lu ms: %.1f C", (unsigned long)msg.timestamp, msg.temperature);
+            FRT_LOG_INFO("[logger] %lu ms: %d.%d C", (unsigned long)msg.timestamp, whole(msg.temperature), tenth(msg.temperature));
 
         return true;
     }
@@ -80,7 +85,7 @@ protected:
         frt::msgs::Temperature msg;
 
         if (m_sub->receive(msg, 0))
-            FRT_LOG_INFO("[display] latest: %.1f C", msg.temperature);
+            FRT_LOG_INFO("[display] latest: %d.%d C", whole(msg.temperature), tenth(msg.temperature));
 
         msleep(1000);
         return true;
