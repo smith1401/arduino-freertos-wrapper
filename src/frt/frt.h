@@ -15,8 +15,14 @@
 #include <message_buffer.h>
 #include <timers.h>
 #include <task.h>
-#elif defined(STM32F1) || defined(STM32F2) || defined(STM32F4) || defined(STM32U5)
+// STM32F4 etc. come from the CMSIS headers, STM32F4xx etc. from the compiler
+// flags. The latter are needed for PlatformIO's dependency scan (deep+),
+// which evaluates these conditions without reading the core headers.
+#elif defined(STM32F1) || defined(STM32F2) || defined(STM32F4) || defined(STM32U5) || \
+    defined(STM32F1xx) || defined(STM32F2xx) || defined(STM32F4xx) || defined(STM32U5xx)
+#ifndef STM32
 #define STM32
+#endif
 #include <STM32FreeRTOS.h>
 #include <message_buffer.h>
 #include <queue.h>
@@ -32,13 +38,19 @@
 #ifndef NRF52
 #define NRF52
 #endif
-#include <FreeRTOS.h>
-#include <event_groups.h>
-#include <queue.h>
-#include <semphr.h>
-#include <message_buffer.h>
-#include <timers.h>
-#include <task.h>
+// The FreeRTOS headers of the Adafruit core have the same names as the ones
+// of the STM32FreeRTOS library. Included through a function-like macro,
+// PlatformIO's dependency scan can not resolve them and therefore never
+// pulls STM32FreeRTOS into an nRF52 build, while the compiler still finds
+// the core's headers.
+#define FRT_SYS_HEADER(name) <name>
+#include FRT_SYS_HEADER(FreeRTOS.h)
+#include FRT_SYS_HEADER(event_groups.h)
+#include FRT_SYS_HEADER(queue.h)
+#include FRT_SYS_HEADER(semphr.h)
+#include FRT_SYS_HEADER(message_buffer.h)
+#include FRT_SYS_HEADER(timers.h)
+#include FRT_SYS_HEADER(task.h)
 #else
 #error "Platform not supported!"
 #endif

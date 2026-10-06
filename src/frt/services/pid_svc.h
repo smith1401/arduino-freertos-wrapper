@@ -21,6 +21,14 @@ namespace frt
     class PIDService : public frt::Task<PIDService, 4096>
     {
     public:
+        /**
+         *  @param calc_pid Currently IGNORED: the pointer is stored but never
+         *         read, and the PID output is calculated on every
+         *         RECORD_CALC_PID event regardless of it. Code may rely on that
+         *         (e.g. a keep-warm mode that only sets a target temperature),
+         *         so honouring the flag would be a breaking change and is left
+         *         for a major release.
+         */
         PIDService(float p, float i, float d, bool *calc_pid);
         virtual ~PIDService();
         bool run() override;
@@ -41,7 +49,7 @@ namespace frt
         float _input;
         float _output;
         uint32_t _last_tick_time;
-        bool *_calc_pid;
+        bool *_calc_pid; // stored but not used, see the constructor
     };
 
 }

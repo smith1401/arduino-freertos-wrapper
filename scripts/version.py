@@ -113,7 +113,7 @@ def cmd_set(version):
     changelog = CHANGELOG.read_text()
     if version not in changelog_sections():
         today = datetime.date.today().isoformat()
-        unreleased = re.compile(r"^## \[?Unreleased\]?\s*$", re.MULTILINE | re.IGNORECASE)
+        unreleased = re.compile(r"^## \[?Unreleased\]?[ \t]*$", re.MULTILINE | re.IGNORECASE)
         if unreleased.search(changelog):
             changelog = unreleased.sub(f"## {version} - {today}", changelog, count=1)
         else:
