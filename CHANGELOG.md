@@ -4,26 +4,42 @@
 
 ### Fixed
 
-* **ESP32 / nRF52 builds with PlatformIO**: when STM32FreeRTOS was visible
-  to a build (installed for the project or globally), the `deep` dependency
-  scan ignored the `#ifdef`s in `frt.h` and compiled it for ESP32. The
-  library now uses `deep+`, which still scans all library sources (needed,
-  e.g. `UDPStream` pulls in the core's WiFi / AsyncUDP libraries) but
-  evaluates the `#ifdef`s. STM32 is additionally
-  detected by the series macros from the compiler flags (`STM32F4xx`, ...),
-  which the scan knows, and on nRF52 the core's FreeRTOS headers (same file
-  names as STM32FreeRTOS') are included so the scan can not mistake them.
-  On ESP32 it also came in through AsyncTCP, an unused dependency (the
-  `UDPStream` uses AsyncUDP from the arduino-esp32 core), which is removed.
-  `UDPStream.cpp` includes WiFi / AsyncUDP where the scan can see them (it
-  can not evaluate the `__has_include()` guard around the rest).
-  A `lib_ignore = STM32FreeRTOS` workaround can be removed. CI now builds
-  ESP32 and nRF52 with STM32FreeRTOS visible and fails if it is used.
+* **STM32 FreeRTOS port compiled into ESP32 / nRF52 builds (PlatformIO)**:
+  * The wrapper's `library.json` declared `STM32duino FreeRTOS` and BindArg as
+    dependencies. Their platform filter is not applied in every setup (not for
+    a wrapper in the project's `lib/` folder), so they were installed for
+    every platform. These dependencies are removed, see *Changed*.
+  * The `deep` dependency scan ignored the `#ifdef`s in `frt.h`. The library
+    now uses `deep+`, which still scans all library sources but evaluates
+    them. STM32 is also detected by the series macros from the compiler flags
+    (`STM32F4xx`, ...), which the scan knows. On nRF52 the core's FreeRTOS
+    headers, which have the same names as those of `STM32duino FreeRTOS`, are
+    included so the scan can not resolve them to it.
+  * On ESP32 it also came in through AsyncTCP, an unused dependency (the
+    `UDPStream` uses AsyncUDP from the arduino-esp32 core), which is removed.
+    `UDPStream.cpp` includes WiFi / AsyncUDP where the scan can see them (it
+    can not evaluate the `__has_include()` guard around the rest).
+  * PlatformIO matches libraries by their manifest name: a `lib_ignore` for
+    this library must say `STM32duino FreeRTOS`, not `STM32FreeRTOS`. Whether
+    it is still needed depends on the project: it is if the project itself
+    makes `STM32duino FreeRTOS` visible to non-STM32 environments (e.g. in a
+    shared `lib_deps` or `lib/` folder).
+  * CI builds the examples with the wrapper in `lib_deps` and in `lib/`, and
+    on ESP32 / nRF52 with `STM32duino FreeRTOS` visible, and fails if it is
+    used there.
 * The migration guide in the README was missing breaking changes made during
   1.x: the `Timer` method renames, `msgs::PID` → `msgs::PIDInput`,
   `InputType` becoming an `enum class`, the removed `...FromInterrupt()`
   methods, `Task::beginCriticalSection()`, `Queue::getFillLevel()` and the
   empty `node.h` / `streambuffer.h` headers.
+
+### Changed
+
+* `library.json` no longer declares `STM32duino FreeRTOS` and BindArg. STM32
+  projects add `stm32duino/STM32duino FreeRTOS` to their `lib_deps`, and
+  STM32 / nRF52 projects that use the input or output services add
+  `https://github.com/openlab-vn-ua/BindArg.git`. See *Installation* in the
+  README.
 
 ### Known issues
 

@@ -72,15 +72,33 @@ Design rules used throughout:
 
 ## Installation
 
-**PlatformIO**: add the library to `platformio.ini`; dependencies are
-installed automatically:
+**PlatformIO**: add the library to `platformio.ini` (or put it into the
+project's `lib/` folder, e.g. as a git submodule). The platform specific
+libraries are not declared as dependencies of the wrapper: PlatformIO does not
+apply a dependency's platform filter in every setup (it does not for libraries
+in `lib/`), and would then install and compile them for the wrong platforms.
+Add the ones for your platform yourself:
 
 ```ini
-lib_deps = https://github.com/smith1401/arduino-freertos-wrapper.git
+[env:esp32]
+lib_deps =
+    https://github.com/smith1401/arduino-freertos-wrapper.git
+
+[env:stm32]
+lib_deps =
+    https://github.com/smith1401/arduino-freertos-wrapper.git
+    stm32duino/STM32duino FreeRTOS                  ; required
+    https://github.com/openlab-vn-ua/BindArg.git    ; input / output services only
+
+[env:nrf52]
+lib_deps =
+    https://github.com/smith1401/arduino-freertos-wrapper.git
+    Adafruit TinyUSB Library                        ; USB Serial of the Adafruit core
+    https://github.com/openlab-vn-ua/BindArg.git    ; input / output services only
 ```
 
-On nRF52 also add `Adafruit TinyUSB Library` to `lib_deps`, otherwise
-PlatformIO does not link the USB `Serial` of the Adafruit core.
+PlatformIO matches libraries by the name in their manifest, so a
+`lib_ignore` for the STM32 FreeRTOS port must say `STM32duino FreeRTOS`.
 
 **Arduino IDE**: install the ZIP of this repository (Sketch → Include Library →
 Add .ZIP Library). On STM32 also install *STM32duino FreeRTOS*. The optional
