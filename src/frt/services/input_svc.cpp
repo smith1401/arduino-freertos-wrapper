@@ -1,7 +1,16 @@
 #include <Arduino.h>
 
+// __has_include() hidden behind a macro: PlatformIO's dependency scan can not
+// evaluate __has_include() and would then not see (and not provide) BindArg,
+// it does know that __has_include is not defined for it and takes the 1.
+#if defined(__has_include)
+#define FRT_HAS_BINDARG __has_include(<BindArg.h>)
+#else
+#define FRT_HAS_BINDARG 1
+#endif
+
 // Needs BindArg on STM32 / nRF52, skip it if that library is not installed
-#if defined(ESP32) || __has_include(<BindArg.h>)
+#if defined(ESP32) || FRT_HAS_BINDARG
 
 #include "input_svc.h"
 

@@ -18,7 +18,9 @@
   * On ESP32 it also came in through AsyncTCP, an unused dependency (the
     `UDPStream` uses AsyncUDP from the arduino-esp32 core), which is removed.
     `UDPStream.cpp` includes WiFi / AsyncUDP where the scan can see them (it
-    can not evaluate the `__has_include()` guard around the rest).
+    can not evaluate the `__has_include()` guard around the rest). For the
+    same reason the input / output services check for BindArg through a
+    helper macro, so a BindArg in the project's `lib_deps` is found.
   * PlatformIO matches libraries by their manifest name: a `lib_ignore` for
     this library must say `STM32duino FreeRTOS`, not `STM32FreeRTOS`. Whether
     it is still needed depends on the project: it is if the project itself
