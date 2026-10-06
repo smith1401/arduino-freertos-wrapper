@@ -16,8 +16,8 @@
 #include <timers.h>
 #include <task.h>
 // STM32F4 etc. come from the CMSIS headers, STM32F4xx etc. from the compiler
-// flags. The latter are needed for PlatformIO's dependency scan (chain+ /
-// deep+), which evaluates these conditions without reading the core headers.
+// flags. The latter are needed for PlatformIO's dependency scan (deep+),
+// which evaluates these conditions without reading the core headers.
 #elif defined(STM32F1) || defined(STM32F2) || defined(STM32F4) || defined(STM32U5) || \
     defined(STM32F1xx) || defined(STM32F2xx) || defined(STM32F4xx) || defined(STM32U5xx)
 #ifndef STM32

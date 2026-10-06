@@ -19,7 +19,7 @@
         "nordicnrf52"
     ],
     "build": {
-        "libLDFMode": "chain+",
+        "libLDFMode": "deep+",
         "libCompatMode": "strict"
     },
     "dependencies": [

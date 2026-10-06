@@ -7,7 +7,9 @@
 * **ESP32 / nRF52 builds with PlatformIO**: when STM32FreeRTOS was visible
   to a build (installed for the project or globally), the `deep` dependency
   scan ignored the `#ifdef`s in `frt.h` and compiled it for ESP32. The
-  library now uses `chain+`, which evaluates them. STM32 is additionally
+  library now uses `deep+`, which still scans all library sources (needed,
+  e.g. `UDPStream` pulls in the core's WiFi / AsyncUDP libraries) but
+  evaluates the `#ifdef`s. STM32 is additionally
   detected by the series macros from the compiler flags (`STM32F4xx`, ...),
   which the scan knows, and on nRF52 the core's FreeRTOS headers (same file
   names as STM32FreeRTOS') are included so the scan can not mistake them.
