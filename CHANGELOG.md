@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.0.1 - 2026-10-06
+
+### Fixed
+
+* **ESP32 / nRF52 builds with PlatformIO**: when STM32FreeRTOS was visible
+  to a build (installed for the project or globally), the `deep` dependency
+  scan ignored the `#ifdef`s in `frt.h` and compiled it for ESP32. The
+  library now uses `chain+`, which evaluates them. STM32 is additionally
+  detected by the series macros from the compiler flags (`STM32F4xx`, ...),
+  which the scan knows, and on nRF52 the core's FreeRTOS headers (same file
+  names as STM32FreeRTOS') are included so the scan can not mistake them.
+  A `lib_ignore = STM32FreeRTOS` workaround can be removed. CI now builds
+  ESP32 and nRF52 with STM32FreeRTOS visible and fails if it is used.
+* The migration guide in the README was missing breaking changes made during
+  1.x: the `Timer` method renames, `msgs::PID` → `msgs::PIDInput`,
+  `InputType` becoming an `enum class`, the removed `...FromInterrupt()`
+  methods, `Task::beginCriticalSection()`, `Queue::getFillLevel()` and the
+  empty `node.h` / `streambuffer.h` headers.
+
+### Known issues
+
+* `PIDService` ignores its `calc_pid` argument (documented now, behaviour
+  unchanged: the PID still runs on every calculation event).
+
 ## 2.0.0
 
 ### Fixed
@@ -74,4 +98,4 @@
 
 ### Changed
 
-See [Migrating from 1.x](https://github.com/smith1401/arduino-freertos-wrapper/blob/v2.0.0/README.md#migrating-from-1x) in the README.
+See [Migrating from 1.x](https://github.com/smith1401/arduino-freertos-wrapper/blob/main/README.md#migrating-from-1x) in the README.

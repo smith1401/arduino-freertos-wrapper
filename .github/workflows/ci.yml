@@ -65,4 +65,21 @@ jobs:
           mkdir -p /tmp/proj/src
           cp examples/${{ matrix.example }}/${{ matrix.example }}.ino /tmp/proj/src/main.cpp
           cp test/platformio/platformio.ini /tmp/proj/
-          pio run -d /tmp/proj -e ${{ matrix.env }}
+          if [ "${{ matrix.env }}" != "stm32" ]; then
+            # Worst case: STM32FreeRTOS is visible to the build (e.g. as a
+            # global library). It must still not be picked up on this platform.
+            git clone -q --depth 1 https://github.com/stm32duino/STM32FreeRTOS.git /tmp/proj/lib/STM32FreeRTOS
+          fi
+          pio run -d /tmp/proj -e ${{ matrix.env }} 2>&1 | tee /tmp/build.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Only the platform's own FreeRTOS is built
+        # Only the dependency scan decides whether an installed / visible
+        # library is used; it must not select STM32FreeRTOS here
+        if: matrix.env != 'stm32'
+        run: |
+          # Installing it is fine, using it is not
+          if grep -nE '\|-- STM32FreeRTOS|Compiling .*STM32FreeRTOS' /tmp/build.log; then
+            echo "::error::STM32FreeRTOS was compiled for ${{ matrix.env }}"
+            exit 1
+          fi

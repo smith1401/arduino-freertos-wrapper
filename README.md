@@ -77,7 +77,6 @@ installed automatically:
 
 ```ini
 lib_deps = https://github.com/smith1401/arduino-freertos-wrapper.git
-lib_ldf_mode = deep+
 ```
 
 On nRF52 also add `Adafruit TinyUSB Library` to `lib_deps`, otherwise
@@ -294,6 +293,44 @@ tags are picked up there automatically.
 * `Timer` subclasses should call `destroy()` in their destructor.
 * The burst firing output service is not available on arduino-esp32 3.x
   (its RMT API can not be used from an interrupt anymore).
+
+These changes happened earlier, during 1.x, and also apply when coming from an
+older 1.x version:
+
+* `Timer` methods are lower camel case and detect the ISR context on their own:
+
+  | Old | New |
+  | --- | --- |
+  | `IsActive()` | `isActive()` |
+  | `Start()`, `StartFromISR()` | `start()` |
+  | `Stop()`, `StopFromISR()` | `stop()` |
+  | `Reset()`, `ResetFromISR()` | `reset()` |
+  | `SetPeriod()`, `SetPeriodFromISR()` | `setPeriod()` |
+  | `GetTimerDaemonHandle()` | `getTimerDaemonHandle()` |
+  | `virtual void Run()` | `virtual void run()` |
+
+  A subclass that still overrides `Run()` no longer compiles (the class stays
+  abstract); rename it to `run()`, ideally with `override`.
+* The other `...FromInterrupt()` methods and their `prepare...` /
+  `finalize...` helpers are gone; call the normal method from the ISR instead,
+  it detects the ISR context and yields when needed:
+  `Queue::pushFromInterrupt()` → `push()`, `popFromInterrupt()` → `pop()`,
+  `Task::postFromInterrupt()` / `Semaphore::postFromInterrupt()` → `post()`,
+  `MessageBuffer::sendFromInterrupt()` → `send()`,
+  `receiveFromInterrupt()` → `receive()`.
+* `Task::beginCriticalSection()` / `endCriticalSection()` are replaced by
+  `frt::CriticalSection` (scope based).
+* `Queue::getFillLevel()` is replaced by `available()`.
+* `msgs::PID` is renamed to `msgs::PIDInput` (same fields: `setpoint`, `p`,
+  `i`, `d`). The new `msgs::PIDError` carries the PID error terms.
+* `InputType` is an `enum class`: `InputTypePress` → `InputType::Press`,
+  likewise `Release`, `Short`, `Long`, `Repeat` and `MAX`. `|`, `&` and `!` are
+  defined for it, so filters such as
+  `InputType::Release | InputType::Repeat` keep working. Note that `a & b`
+  now returns `bool` (whether any bit is shared), not the masked value;
+  converting to or from an integer needs a `static_cast`.
+* `frt/node.h` and `frt/streambuffer.h` were empty (fully commented out) and
+  are removed; drop their `#include`s.
 
 ## Alternatives
 
