@@ -3,12 +3,17 @@
 #include <frt/log.h>
 #include <frt/services/input_svc.h>
 
+/*
+ * frt example: debounced buttons with short / long / repeat events.
+ */
 #if defined(PIN_BUTTON)
 #define TEST_BTN PIN_BUTTON
 #elif defined(USER_BTN)
 #define TEST_BTN USER_BTN
 #elif defined(KEY_BUILTIN)
 #define TEST_BTN KEY_BUILTIN
+#else
+#define TEST_BTN 0 // Change to the pin of your button
 #endif
 
 class InputHandlerTask : public frt::Task<InputHandlerTask>
@@ -16,7 +21,7 @@ class InputHandlerTask : public frt::Task<InputHandlerTask>
 public:
     InputHandlerTask()
     {
-        input_sub = new frt::pubsub::subscribe<frt::InputEvent>(RECORD_INPUT_EVENTS);
+        input_sub = frt::pubsub::subscribe<frt::InputEvent>(RECORD_INPUT_EVENTS);
         FRT_LOG_INFO("Input Handler started with topic [%s]", RECORD_INPUT_EVENTS);
     }
 
@@ -27,7 +32,7 @@ public:
         if (input_sub->receive(evt))
         {
             FRT_LOG_INFO("Button [%s]: %s", frt::InputService::getKeyName(evt.key), frt::InputService::getTypeName(evt.type));
-            FRT_LOG_INFO("Remaining stack size: %d", getRemainingStackSize());
+            FRT_LOG_INFO("Remaining stack size: %u", getRemainingStackSize());
         }
 
         return true;
@@ -56,7 +61,7 @@ void setup()
     /*
     Filter by button press event type. Possible types are:
 
-        frt::InputType::Release < Press event, emitted after debounce
+        frt::InputType::Press   < Press event, emitted after debounce
         frt::InputType::Release < Release event, emitted after debounce
         frt::InputType::Short   < Short event, emitted after InputTypeRelease done within INPUT_LONG_PRESS interval
         frt::InputType::Long    < Long event, emitted after INPUT_LONG_PRESS_COUNTS interval, asynchronous to InputTypeRelease
@@ -72,7 +77,10 @@ void setup()
     frt::spin();
 }
 
-/* Loop can be/is used as idle task */
 void loop()
 {
+#if defined(ESP32) || defined(NRF52)
+    vTaskDelay(portMAX_DELAY);
+#endif
+    // On STM32 loop() is called from the idle task and must never block
 }

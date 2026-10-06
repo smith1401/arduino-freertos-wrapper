@@ -1,8 +1,18 @@
+/*
+ * frt example: one task waiting on several subscribers with a FreeRTOS queue set.
+ * The queue set needs configUSE_QUEUE_SETS enabled in FreeRTOSConfig.h.
+ */
 #include <Arduino.h>
 #include <frt/frt.h>
 #include <frt/log.h>
 #include <frt/pubsub.h>
 #include <frt/task.h>
+
+#if !defined(configUSE_QUEUE_SETS) || (configUSE_QUEUE_SETS != 1)
+// ESP32 has queue sets enabled. On STM32 add "#define configUSE_QUEUE_SETS 1"
+// to a STM32FreeRTOSConfig_extra.h in your include path.
+#error "This example needs configUSE_QUEUE_SETS set to 1 in the FreeRTOS config"
+#endif
 
 class PublisherTask : public frt::Task<PublisherTask>
 {
@@ -60,7 +70,7 @@ public:
 
             uint32_t prio = random(0, 3);
             tasksVec.back()->start(prio, tasksVec.back()->topic());
-            FRT_LOG_INFO("PublisherTask started ['%8s', %d]", tasksVec.back()->topic(), prio);
+            FRT_LOG_INFO("PublisherTask started ['%8s', %lu]", tasksVec.back()->topic(), (unsigned long)prio);
         }
     }
 
@@ -75,7 +85,7 @@ public:
                 uint32_t data;
                 if (sub->receive(data))
                 {
-                    FRT_LOG_DEBUG("Subscriber with topic '%s' received %lu", sub->topic(), data);
+                    FRT_LOG_DEBUG("Subscriber with topic '%s' received %lu", sub->topic(), (unsigned long)data);
                 }
             }
         }
@@ -111,5 +121,7 @@ void setup()
 
 void loop()
 {
-    suspendLoop();
+#if defined(ESP32) || defined(NRF52)
+    vTaskDelay(portMAX_DELAY);
+#endif
 }
