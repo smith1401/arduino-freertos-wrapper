@@ -15,6 +15,8 @@
   names as STM32FreeRTOS') are included so the scan can not mistake them.
   On ESP32 it also came in through AsyncTCP, an unused dependency (the
   `UDPStream` uses AsyncUDP from the arduino-esp32 core), which is removed.
+  `UDPStream.cpp` includes WiFi / AsyncUDP where the scan can see them (it
+  can not evaluate the `__has_include()` guard around the rest).
   A `lib_ignore = STM32FreeRTOS` workaround can be removed. CI now builds
   ESP32 and nRF52 with STM32FreeRTOS visible and fails if it is used.
 * The migration guide in the README was missing breaking changes made during

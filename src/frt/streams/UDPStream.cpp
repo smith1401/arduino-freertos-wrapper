@@ -1,5 +1,13 @@
 #include <Arduino.h>
 
+#if defined(ESP32)
+// Core libraries used by UDPStream.h, included outside the __has_include()
+// check below: PlatformIO's dependency scan can not evaluate __has_include()
+// and would otherwise never find (and link) them.
+#include <WiFi.h>
+#include <AsyncUDP.h>
+#endif
+
 // Needs the CircularBuffer library, skip it if that is not installed
 #if defined(ESP32) && __has_include(<CircularBuffer.hpp>)
 #include "UDPStream.h"
